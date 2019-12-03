@@ -1,8 +1,8 @@
 {
-  "name": "@vkd/media-player",
+  "name": "vf-media-player",
   "version": "1.0.0",
-  "description": "vkd media player",
-  "main": "./dist/videoSDK.js",
+  "description": "vf media player for html5",
+  "main": "./dist/VFMediaPlayer.js",
   "scripts": {
     "dist": "webpack --config webpack.config.js",
     "example": "webpack --config webpack.example.js",
