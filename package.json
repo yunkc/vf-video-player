@@ -1,0 +1,52 @@
+{
+  "name": "@vkd/media-player",
+  "version": "1.0.0",
+  "description": "vkd media player",
+  "main": "./dist/videoSDK.js",
+  "scripts": {
+    "dist": "webpack --config webpack.config.js",
+    "example": "webpack --config webpack.example.js",
+    "dev": "webpack-dev-server --config webpack.example.js --hot --open",
+    "showcase": "webpack --config webpack.config.js",
+    "watch": "webpack --watch",
+    "start": "npm run example && npm run dev"
+  },
+  "author": "j21 <781011352@qq.com>",
+  "license": "MIT",
+  "repository": {
+    "url": "",
+    "type": "github"
+  },
+  "keywords": [
+    "h5 media player",
+    "video",
+    "mp4"
+  ],
+  "devDependencies": {
+    "awesome-typescript-loader": "^5.2.1",
+    "bootstrap": "^3.4.1",
+    "css-loader": "^3.2.0",
+    "dat.gui": "^0.7.6",
+    "echarts": "^4.5.0",
+    "expose-loader": "^0.7.5",
+    "file-loader": "^4.3.0",
+    "html-webpack-plugin": "^3.2.0",
+    "install": "^0.13.0",
+    "jquery": "^3.4.1",
+    "source-map-loader": "^0.2.4",
+    "typescript": "^3.5.1",
+    "url-loader": "^1.1.2",
+    "vconsole": "^3.3.4",
+    "webpack": "^4.32.2",
+    "webpack-bundle-analyzer": "^3.3.2",
+    "webpack-cli": "^3.3.2",
+    "webpack-dev-server": "^3.9.0"
+  },
+  "dependencies": {
+    "@types/lodash": "^4.14.137",
+    "bowser": "^2.4.0",
+    "eventemitter3": "^3.1.2",
+    "lodash": "^4.17.15",
+    "sa-sdk-javascript": "^1.14.14"
+  }
+}

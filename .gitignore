@@ -1,0 +1,14 @@
+.idea/
+node_modules/
+npm-debug.log
+*.swo
+*.swp
+.vscode/
+.DS_Store
+*/**/.DS_Store/*
+example/
+agile.yaml
+/index.html
+*.txt
+package-lock.json
+webpack.example.js
