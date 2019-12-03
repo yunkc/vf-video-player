@@ -25,6 +25,10 @@ class VkdMP4Player extends VkdBasePlayer {
     }
 
     private errorHandler = (err: IObject) => {
+        if(!err) err = {
+            code: ErrorTypeList.UNKNOWN_ERROR,
+            message: `(player) unknow error catch!`
+        }
         !err.code && (err.code = ErrorTypeList.PLAYER_CORE_MP4_ERROR);
         this.dispatchErrorEvent(err.code, err.message, err.data);
         this.once('canplay', () => {
