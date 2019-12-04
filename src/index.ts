@@ -255,8 +255,8 @@ export default class MediaPlayer extends EventEmitter {
     /**
      * 获取分辨率
      */
-    get definition(){
-        return this._globalAPI.getCorePropertyByName('definition');
+    get srcList(){
+        return this._globalAPI.getCorePropertyByName('srcList');
     }
 
     set definition(value: IObject[]| string){
@@ -286,10 +286,9 @@ export default class MediaPlayer extends EventEmitter {
      * @param element 
      * @param options 
      */
-    constructor(element: HTMLElement, options: any) {
+    constructor(options: any) {
         super();
         this.setShowLog(options.isShowLog);
-        this._element = element;
         this._options = options;
     }
 
@@ -304,6 +303,10 @@ export default class MediaPlayer extends EventEmitter {
 
         EventBus.getInstance().on('PlayerError', (e: IObject) => {
             this.dispatchOutwardEvent('playerError', e);
+        })
+
+        EventBus.getInstance().on('PlayerMediaInfoParsed', (e: IObject) => {
+            this.dispatchOutwardEvent('PlayerMediaInfoParsed', e);
         })
 
         EventBus.getInstance().on('PlayerDownloadSpeed', (e: IObject) => {
@@ -332,7 +335,6 @@ export default class MediaPlayer extends EventEmitter {
         PlayerPluginManager.getInstance().dispose();
 
         this._globalAPI = null;
-        this._element = null;
         this._options = null;
 
         EventBus.getInstance().dispose();
@@ -343,7 +345,6 @@ export default class MediaPlayer extends EventEmitter {
      * 初始化 player SDK
      */
     public init(): void {
-        let containerElement = this._element;
         let options = this._options;
         RuntimeLog.getInstance().outputSdkInfo();
 
@@ -353,9 +354,7 @@ export default class MediaPlayer extends EventEmitter {
         this.initOutwardStatesEventsListener();
 
         // 初始化API模块
-        let _GlobalAPIOpts: IObject = {
-            containerElement, ...options
-        };
+        let _GlobalAPIOpts: IObject = options;
         this._globalAPI = GlobalAPI.getInstance(_GlobalAPIOpts);
 
         // 初始化插件模块
@@ -375,6 +374,10 @@ export default class MediaPlayer extends EventEmitter {
         this._globalAPI.callFuncByName('changeSrc', source);
     }
 
+    /**
+     * 切换分辨率
+     * @param definition 
+     */
     public changeDefinition(definition: string): void {
         this._globalAPI.callFuncByName('changeDefinition', definition);
     }

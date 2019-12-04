@@ -38,6 +38,4 @@ export default interface IPlayerCore {
 
     setCurrentTimeByPercent(percent: number): void;
 
-    changeDefinition(definition: string): void;
-
 }

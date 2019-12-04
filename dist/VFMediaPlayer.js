@@ -4862,12 +4862,12 @@ exports.SensorEventType = {
  */
 exports.playerConfig = {
     definition: 'Auto',
-    autoplay: true,
-    muted: true,
+    autoplay: false,
+    muted: false,
     loop: false,
     preload: false,
     poster: '',
-    controls: true,
+    controls: false,
     volume: 1,
     src: '',
     playbackRate: 1,
@@ -5022,16 +5022,15 @@ var CorePlayerManager = /** @class */ (function () {
     };
     /**
      * 创建播放核心管理者
-     * @param {HTMLElement} containerElement
      * @param {object} config
      */
     CorePlayerManager.prototype.initManager = function (config) {
-        if (!config.containerElement) {
+        if (!config.container) {
             RuntimeLog_1.default.getInstance().error('container element is must-pass param!');
             return;
         }
         var _videoElement = this.createVideoElement(config.id, config.classList);
-        config.containerElement.appendChild(_videoElement);
+        config.container.appendChild(_videoElement);
         RuntimeLog_1.default.getInstance().log('video element appended');
         try {
             this.initVkdPlayerCore(_videoElement, config);
@@ -5303,10 +5302,14 @@ var CorePlayerManager = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(CorePlayerManager.prototype, "definition", {
+    Object.defineProperty(CorePlayerManager.prototype, "srcList", {
         get: function () {
             return this._playerCore.usefulUrlList;
         },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(CorePlayerManager.prototype, "definition", {
         set: function (value) {
             this._playerCore.changeDefinition(value);
         },
@@ -5315,8 +5318,6 @@ var CorePlayerManager = /** @class */ (function () {
     });
     CorePlayerManager.prototype.changeSrc = function (source) {
         this._playerCore.changeSrc(source);
-    };
-    CorePlayerManager.prototype.changeDefinition = function (definition) {
     };
     CorePlayerManager.prototype.enterFullScreen = function () {
         this._playerCore.enterFullScreen();
@@ -7718,6 +7719,7 @@ var VkdBasePlayer = /** @class */ (function (_super) {
             '480P': null,
             '720P': null,
             '1080P': null,
+            '4K': null,
         };
         _this._canSwitchDefinition = false;
         _this._currentDefinition = null;
@@ -12713,6 +12715,11 @@ var VkdMP4Player = /** @class */ (function (_super) {
         _this._timer = undefined;
         _this._isEnd = false;
         _this.errorHandler = function (err) {
+            if (!err)
+                err = {
+                    code: ErrorTypeList_1.ErrorTypeList.UNKNOWN_ERROR,
+                    message: "(player) unknow error catch!"
+                };
             !err.code && (err.code = ErrorTypeList_1.ErrorTypeList.PLAYER_CORE_MP4_ERROR);
             _this.dispatchErrorEvent(err.code, err.message, err.data);
             _this.once('canplay', function () {
@@ -13272,17 +13279,6 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
-var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
-        }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * 播放 SDK 入口类
@@ -13304,7 +13300,7 @@ var MediaPlayer = /** @class */ (function (_super) {
      * @param element
      * @param options
      */
-    function MediaPlayer(element, options) {
+    function MediaPlayer(options) {
         var _this = _super.call(this) || this;
         /**
          * 监听内核销毁事件
@@ -13318,13 +13314,11 @@ var MediaPlayer = /** @class */ (function (_super) {
             PlayerStateManager_1.default.getInstance().dispose();
             PlayerPluginManager_1.default.getInstance().dispose();
             _this._globalAPI = null;
-            _this._element = null;
             _this._options = null;
             EventBus_1.default.getInstance().dispose();
             _this.removeAllListeners();
         };
         _this.setShowLog(options.isShowLog);
-        _this._element = element;
         _this._options = options;
         return _this;
     }
@@ -13612,13 +13606,17 @@ var MediaPlayer = /** @class */ (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(MediaPlayer.prototype, "definition", {
+    Object.defineProperty(MediaPlayer.prototype, "srcList", {
         /**
          * 获取分辨率
          */
         get: function () {
-            return this._globalAPI.getCorePropertyByName('definition');
+            return this._globalAPI.getCorePropertyByName('srcList');
         },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(MediaPlayer.prototype, "definition", {
         set: function (value) {
             this._globalAPI.setCorePropertyByName('definition', value);
         },
@@ -13658,6 +13656,9 @@ var MediaPlayer = /** @class */ (function (_super) {
         EventBus_1.default.getInstance().on('PlayerError', function (e) {
             _this.dispatchOutwardEvent('playerError', e);
         });
+        EventBus_1.default.getInstance().on('PlayerMediaInfoParsed', function (e) {
+            _this.dispatchOutwardEvent('PlayerMediaInfoParsed', e);
+        });
         EventBus_1.default.getInstance().on('PlayerDownloadSpeed', function (e) {
             _this.dispatchOutwardEvent('PlayerDownloadSpeed', e);
         });
@@ -13672,14 +13673,13 @@ var MediaPlayer = /** @class */ (function (_super) {
      * 初始化 player SDK
      */
     MediaPlayer.prototype.init = function () {
-        var containerElement = this._element;
         var options = this._options;
         RuntimeLog_1.default.getInstance().outputSdkInfo();
         // Player状态设置为未就绪
         PlayerStateManager_1.default.getInstance().updatePlayerState(StateTypeList_1.StateTypeList.NOT_READY);
         this.initOutwardStatesEventsListener();
         // 初始化API模块
-        var _GlobalAPIOpts = __assign({ containerElement: containerElement }, options);
+        var _GlobalAPIOpts = options;
         this._globalAPI = GlobalAPI_1.default.getInstance(_GlobalAPIOpts);
         // 初始化插件模块
         PlayerPluginManager_1.default.getInstance(options.pluginList || []);
@@ -13694,6 +13694,10 @@ var MediaPlayer = /** @class */ (function (_super) {
     MediaPlayer.prototype.changeSrc = function (source) {
         this._globalAPI.callFuncByName('changeSrc', source);
     };
+    /**
+     * 切换分辨率
+     * @param definition
+     */
     MediaPlayer.prototype.changeDefinition = function (definition) {
         this._globalAPI.callFuncByName('changeDefinition', definition);
     };

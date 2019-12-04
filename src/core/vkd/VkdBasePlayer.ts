@@ -32,6 +32,7 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
         '480P': null,
         '720P': null,
         '1080P': null,
+        '4K': null,
     };
     private _canSwitchDefinition: boolean = false;
     private _currentDefinition: string = null;

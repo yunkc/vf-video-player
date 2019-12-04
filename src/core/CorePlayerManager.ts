@@ -60,17 +60,16 @@ export default class CorePlayerManager implements IPlayerCore {
 
     /**
      * 创建播放核心管理者
-     * @param {HTMLElement} containerElement
      * @param {object} config
      */
     private initManager(config: IObject) {
-        if (!config.containerElement) {
+        if (!config.container) {
             RuntimeLog.getInstance().error('container element is must-pass param!');
             return;
         }
 
         let _videoElement: HTMLVideoElement = this.createVideoElement(config.id, config.classList);
-        config.containerElement.appendChild(_videoElement);
+        config.container.appendChild(_videoElement);
         RuntimeLog.getInstance().log('video element appended');
 
         try {
@@ -325,7 +324,7 @@ export default class CorePlayerManager implements IPlayerCore {
         return this._playerCore.fullScreenState;
     }
 
-    get definition(): IObject[] | string {
+    get srcList(): IObject[] | string {
         return this._playerCore.usefulUrlList;
     }
 
@@ -333,13 +332,8 @@ export default class CorePlayerManager implements IPlayerCore {
         this._playerCore.changeDefinition(value);
     }
 
-
     changeSrc(source: string): void {
         this._playerCore.changeSrc(source);
-    }
-
-    changeDefinition(definition: string): void {
-
     }
 
     enterFullScreen(): void {

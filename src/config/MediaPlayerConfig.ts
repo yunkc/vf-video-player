@@ -59,12 +59,12 @@ export const SensorEventType = {
  */
 export let playerConfig: IObject = {
     definition: 'Auto',
-    autoplay: true,
-    muted: true,
+    autoplay: false,
+    muted: false,
     loop: false,
     preload: false, //该属性暂时无效
     poster: '',
-    controls: true,
+    controls: false,
     volume: 1,
     src: '',
     playbackRate: 1,
