@@ -18,6 +18,7 @@ npm install vf-media-player --save
 ## 使用
 ```javascript
 //script标签直接引入
+<link rel="stylesheet" href="./style/VKDVideoSDK.css"/>
 <script src='yourPath/VFMediaPlayer.js'></script>
 
 //或者通过module方式
