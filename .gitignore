@@ -10,6 +10,6 @@ example/
 agile.yaml
 /index.html
 *.txt
-doc/
+doc
 package-lock.json
 webpack.example.js

@@ -68,13 +68,13 @@ myPlayer.init();
 
 ## 联系方式
 
-邮箱 – jiaziling@vipkid.com.cn
+邮箱 – 781011352@qq.com
 
 LICENSE - MIT
 
 ## 贡献
 
-1. Fork本项目 (<https://github.com/vipkid-edu/vf-media-player>)
+1. Fork本项目
 2. 创建您的个人分支 (`git checkout -b yourname/feature`)
 3. 提交您的改动 (`git commit -am 'Yourname Add some feature'`)
 4. 将您的改动推送到远程分支 (`git push origin yourname/feature`)
