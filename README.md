@@ -48,7 +48,13 @@ myPlayer.init();
 
 ## 使用文档
 
-[使用文档](https://github.com/vipkid-edu/vf-media-player/blob/master/doc/doc.md)
+* [Quick start 快速开始](https://github.com/vipkid-edu/vf-media-player/wiki/Quick-start-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B)
+* [Options 配置项](https://github.com/vipkid-edu/vf-media-player/wiki/Options-%E6%92%AD%E6%94%BE%E5%99%A8%E9%80%89%E9%A1%B9%E9%85%8D%E7%BD%AE)
+* [API 方法接口](https://github.com/vipkid-edu/vf-media-player/wiki/%E6%96%B9%E6%B3%95%E6%8E%A5%E5%8F%A3-API)
+* [Event 事件监听](https://github.com/vipkid-edu/vf-media-player/wiki/Events-%E6%92%AD%E6%94%BE%E5%99%A8%E4%BA%8B%E4%BB%B6%E8%AF%B4%E6%98%8E)
+* [Error 异常错误码说明](https://github.com/vipkid-edu/vf-media-player/wiki/Error-%E5%BC%82%E5%B8%B8%E9%94%99%E8%AF%AF%E7%A0%81%E8%AF%B4%E6%98%8E)
+* [Plugin 插件说明](https://github.com/vipkid-edu/vf-media-player/wiki/Plugin-%E6%8F%92%E4%BB%B6%E8%AF%B4%E6%98%8E)
+* [Q&A 常见问题](https://github.com/vipkid-edu/vf-media-player/wiki/Q&A-%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98)
 
 ## TODO List
 | 功能            | 进度 |
