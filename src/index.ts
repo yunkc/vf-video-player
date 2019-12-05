@@ -259,10 +259,6 @@ export default class MediaPlayer extends EventEmitter {
         return this._globalAPI.getCorePropertyByName('srcList');
     }
 
-    set definition(value: IObject[]| string){
-        this._globalAPI.setCorePropertyByName('definition', value);
-    }
-
     /**
      * 获取Player当前状态
      * @returns {any}
@@ -364,6 +360,14 @@ export default class MediaPlayer extends EventEmitter {
         // SensorUtils.getInstance(options.saInstance, options.productId, options.isProd);
 
         // EventBus.getInstance().on('disposeCoreSuccess', this.disposeCoreSuccessHandler);
+    }
+
+    /**
+     * 切换视频分辨率
+     * @param {string} resolution
+     */
+    public changeResolution(resolution: string): void {
+        this._globalAPI.callFuncByName('changeResolution', resolution);
     }
 
     /**

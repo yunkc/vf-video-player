@@ -501,7 +501,7 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
      * 改变分辨率
      * @param definition 
      */
-    public changeDefinition(definition: string) {
+    public changeResolution(definition: string) {
         if (!this._canSwitchDefinition) {
             RuntimeLog.getInstance().warning(`(player) cannot switch definition when only have one src!`);
             return;

@@ -1,4 +1,5 @@
-# VF视频播放SDK
+# VF视频播放器
+[中文](README.md) | [English](README_EN.md)
 
 > 功能模块均处于施工中...
 
@@ -18,10 +19,10 @@ npm install vf-media-player --save
 ## 使用
 ```javascript
 //script标签直接引入
-<link rel="stylesheet" href="./style/VKDVideoSDK.css"/>
+<link rel="stylesheet" href="yourPath/VKDVideoSDK.css"/>
 <script src='yourPath/VFMediaPlayer.js'></script>
 
-//或者通过module方式
+//或者通过module方式, 同时记得引入css文件
 import 'vf-media-player/dist/VFMediaPlayer.css'
 import VFMediaPlayer from 'vf-media-player';
 
@@ -32,7 +33,7 @@ import VFMediaPlayer from 'vf-media-player';
 let myPlayer = new VFMediaPlayer(videoContainer, {
         id: YOUR_ID,
         src: YOUR_URL,
-        definition: '480P',
+        definition: 'Auto',
         controls: false,
         autoplay: false,
         muted: false,
@@ -78,4 +79,4 @@ LICENSE - MIT
 2. 创建您的个人分支 (`git checkout -b yourname/feature`)
 3. 提交您的改动 (`git commit -am 'Yourname Add some feature'`)
 4. 将您的改动推送到远程分支 (`git push origin yourname/feature`)
-5. 创建 MR
+5. 创建Pull Request

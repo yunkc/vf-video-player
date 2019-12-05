@@ -5309,13 +5309,9 @@ var CorePlayerManager = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(CorePlayerManager.prototype, "definition", {
-        set: function (value) {
-            this._playerCore.changeDefinition(value);
-        },
-        enumerable: true,
-        configurable: true
-    });
+    CorePlayerManager.prototype.changeResolution = function (resolution) {
+        this._playerCore.changeResolution(resolution);
+    };
     CorePlayerManager.prototype.changeSrc = function (source) {
         this._playerCore.changeSrc(source);
     };
@@ -8204,7 +8200,7 @@ var VkdBasePlayer = /** @class */ (function (_super) {
      * 改变分辨率
      * @param definition
      */
-    VkdBasePlayer.prototype.changeDefinition = function (definition) {
+    VkdBasePlayer.prototype.changeResolution = function (definition) {
         if (!this._canSwitchDefinition) {
             RuntimeLog_1.default.getInstance().warning("(player) cannot switch definition when only have one src!");
             return;
@@ -13616,13 +13612,6 @@ var MediaPlayer = /** @class */ (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(MediaPlayer.prototype, "definition", {
-        set: function (value) {
-            this._globalAPI.setCorePropertyByName('definition', value);
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(MediaPlayer.prototype, "mediaPlayerState", {
         /**
          * 获取Player当前状态
@@ -13686,6 +13675,13 @@ var MediaPlayer = /** @class */ (function (_super) {
         // 初始化打点模块
         // SensorUtils.getInstance(options.saInstance, options.productId, options.isProd);
         // EventBus.getInstance().on('disposeCoreSuccess', this.disposeCoreSuccessHandler);
+    };
+    /**
+     * 切换视频分辨率
+     * @param {string} resolution
+     */
+    MediaPlayer.prototype.changeResolution = function (resolution) {
+        this._globalAPI.callFuncByName('changeResolution', resolution);
     };
     /**
      * 切换视频播放源

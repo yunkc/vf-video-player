@@ -328,8 +328,8 @@ export default class CorePlayerManager implements IPlayerCore {
         return this._playerCore.usefulUrlList;
     }
 
-    set definition(value: IObject[] | string) {
-        this._playerCore.changeDefinition(value);
+    changeResolution(resolution: string) {
+        this._playerCore.changeResolution(resolution);
     }
 
     changeSrc(source: string): void {
