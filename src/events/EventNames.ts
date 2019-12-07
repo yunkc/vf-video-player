@@ -7,7 +7,6 @@ export const CommandEvents: IObject = {
     //枚举value值必须和函数名对应
     DIMENSION: 'dimension',
     CHANGE_SRC: 'changeSrc',
-    CHANGE_DEFINITION: 'changeDefinition',
     DISPOSE: 'dispose',
     ENTER_FULL_SCREEN: 'enterFullScreen',
     EXIT_FULL_SCREEN: 'exitFullScreen',
@@ -16,7 +15,7 @@ export const CommandEvents: IObject = {
     REPLAY: 'replay',
     RESET: 'reset',
     SET_CURRENT_TIME_BY_PERCENT: 'setCurrentTimeByPercent',
-    SWITCH_DEFINITION: 'switchDefinition',
+    CHANGE_RESOLUTION: 'changeResolution',
 };
 
 export const PropEvents: IObject = {
@@ -41,7 +40,7 @@ export const PropEvents: IObject = {
     AUTOPLAY: 'autoplay',
     SUPPORT_FULL_SCREEN: 'supportFullScreen',
     FULL_SCREEN_STATE: 'fullScreenState',
-    DEFINITION: 'definition',
+    RESOLUTIONS: 'resolutions',
     CONTROLS: 'controls'
 };
 

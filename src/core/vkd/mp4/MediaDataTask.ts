@@ -40,7 +40,7 @@ class MediaDataTask extends EventEmitter {
         videoElement: null,
         videoKeyFrames: [],
         audioKeyFrames: [],
-        preloadTime: playerConfig.preLoadTime,
+        preloadTime: playerConfig.preloadTime,
         timeScale: 1,
         mdatStart: 0,
     };
@@ -184,7 +184,7 @@ class MediaDataTask extends EventEmitter {
             netState: _tempNetState
         })
 
-        if (this._netState !== _tempNetState && playerConfig.definition === 'Auto') {
+        if (this._netState !== _tempNetState && playerConfig.resolution === 'Auto') {
             this._netState = _tempNetState;
             RuntimeLog.getInstance().log(`media data task networkSpeedChange event fired`)
             this.emit('networkSpeedChange', {
@@ -288,22 +288,16 @@ class MediaDataTask extends EventEmitter {
      * @param time 
      */
     checkNeedNextRangeLoad(time: number) {
-        if (this._preloadIndex >= this._videoKeyFrames.length - 1) return;
+        if (this._preloadIndex > this._videoKeyFrames.length - 2) return;
         let _currentTime = time;
         //获取当前帧结尾 | 下一帧开始时间
-        let _startTime = this._videoKeyFrames[this._preloadIndex].time.time;
-        let _duration = this._videoKeyFrames[this._preloadIndex].time.duration
-        let _endTime = (_startTime + _duration) / this._timeScale;
+        let _startTime = this._videoKeyFrames[this._preloadIndex].time.time / this._timeScale;
+        let _endTime = this._videoKeyFrames[this._preloadIndex].time.time
+        // let _endTime = (_startTime + _duration) / this._timeScale;
 
-        // RuntimeLog.getInstance().log(`checkNeedNextRangeLoad called, currentTime: ${_currentTime}, _endTime: ${_endTime}, _preloadIndex${this._preloadIndex}`);
-
-        if (_endTime - _currentTime <= playerConfig.triggerNextLoadRangeTime) {
-            let _time: number = _endTime + 1;
-            let _seekIdx = this.getIndexByTime(_time);
-            this._keepLoadedIndex = _seekIdx;
-            let _seekEndIdx = this.getIndexByTime(_time + this._preloadTime);
-            this._preloadIndex = _seekEndIdx;
-            this.createNextKeepLoader();
+        if (_startTime - _currentTime <= playerConfig.triggerNextLoadRangeTime) {
+            RuntimeLog.getInstance().log(`trigger preload, currentTime: ${_currentTime}, _endTime: ${_startTime}, triggerNextLoadRangeTime: ${playerConfig.triggerNextLoadRangeTime}`);
+            this.seek(_startTime);
         }
     }
 }

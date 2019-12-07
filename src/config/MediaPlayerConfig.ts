@@ -58,7 +58,7 @@ export const SensorEventType = {
  * 播放器默认配置
  */
 export let playerConfig: IObject = {
-    definition: 'Auto',
+    resolution: 'Auto',
     autoplay: false,
     muted: false,
     loop: false,
@@ -67,8 +67,8 @@ export let playerConfig: IObject = {
     controls: false,
     volume: 1,
     src: '',
-    playbackRate: 1,
-    preLoadTime: 3 * 60, //预加载的时间
+    playbackRate: 1, //0~16
+    preloadTime: 3 * 60, //预加载的时间
     triggerNextLoadRangeTime: 2 * 60, //触发下次预加载的时间
     autoCleanupMaxDuration: 3 * 60, //自动sourcebuffer最大长度
     autoCleanupMinDuration: 2 * 60, //自动sourcebuffer实际长度
@@ -81,9 +81,11 @@ export let playerConfig: IObject = {
         '4K': 1048576 * 3,
     }, // MSE最小添加buffer长度Map
     playerPreSwitchTime: 3, // 切流预置时间(s)
-    playerWaitingHandlerTime: 3000, // waiting事件处理时间(ms)
+    playerWaitingHandlerTime: 2000, // waiting事件处理时间(ms)
     playerEndGapTime: 0.5, //判断是否播放到结尾的误差时间(s)
     networkSpeedChangeReflectTime: 5000, //(ms)
+    canSwitchResolution: false,// 是否可以切换分辨率
+    currentResolution: null,//当前播放器实际播放分辨率, 单链接模式下为null
 }
 
 export class playerConfigManager {

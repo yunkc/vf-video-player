@@ -255,8 +255,8 @@ export default class MediaPlayer extends EventEmitter {
     /**
      * 获取分辨率
      */
-    get srcList(){
-        return this._globalAPI.getCorePropertyByName('srcList');
+    get resolutions(){
+        return this._globalAPI.getCorePropertyByName('resolutions');
     }
 
     /**
@@ -376,14 +376,6 @@ export default class MediaPlayer extends EventEmitter {
      */
     public changeSrc(source: string): void {
         this._globalAPI.callFuncByName('changeSrc', source);
-    }
-
-    /**
-     * 切换分辨率
-     * @param definition 
-     */
-    public changeDefinition(definition: string): void {
-        this._globalAPI.callFuncByName('changeDefinition', definition);
     }
 
     /**

@@ -14,6 +14,7 @@ import VkdMP4Player from "./vkd/mp4/VkdMP4Player";
 import VkdHLSPlayer from "./vkd/hls/VkdHLSPlayer";
 import FMP4Worker from './vkd/FMP4Worker';
 import { playerConfigManager, playerConfig } from '../config/MediaPlayerConfig';
+import Scheduler from './Scheduler';
 
 
 /**
@@ -98,6 +99,9 @@ export default class CorePlayerManager implements IPlayerCore {
                 data: null,
             });
         }
+
+        //初始化调度器
+        Scheduler.getInstance();
 
         //初始化碎片MP4 worker
         FMP4Worker.getInstance();
@@ -324,7 +328,7 @@ export default class CorePlayerManager implements IPlayerCore {
         return this._playerCore.fullScreenState;
     }
 
-    get srcList(): IObject[] | string {
+    get resolutions(): IObject[] | string {
         return this._playerCore.usefulUrlList;
     }
 
@@ -366,6 +370,7 @@ export default class CorePlayerManager implements IPlayerCore {
 
     dispose(): void {
         //移除所有事件, 注销worker
+        Scheduler.getInstance().dispose();
         FMP4Worker.getInstance().worker.terminate();
         this._playerCore.dispose();
     }

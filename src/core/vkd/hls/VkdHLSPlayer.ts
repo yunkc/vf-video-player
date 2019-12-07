@@ -33,7 +33,7 @@ class VkdHLSPlayer extends VkdBasePlayer {
         super.start(url);
     }
 
-    switchDefinition(definition: string): void {
+    switchResolution(definition: string): void {
         throw new Error("Method not implemented.");
     }
     timeupdateHandler: () => void;

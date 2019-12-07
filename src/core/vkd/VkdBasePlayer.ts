@@ -34,8 +34,6 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
         '1080P': null,
         '4K': null,
     };
-    private _canSwitchDefinition: boolean = false;
-    private _currentDefinition: string = null;
     private _usefulUrlList: IObject[] = [];
     protected _options: IObject;
     protected _switchDefinitionTimer: number = null;
@@ -167,35 +165,20 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
         return this._mainUrl;
     }
 
+    set mainUrl(value: string) {
+        this._mainUrl = value;
+    }
+
     get mainUrlMap(): IObject {
         return this._mainUrlMap;
     }
 
-    get currentDefinition(): string {
-        return this._currentDefinition;
-    }
-
-    set currentDefinition(value: string) {
-        this._currentDefinition = value;
+    set mainUrlMap(value: IObject) {
+        this._mainUrlMap = value;
     }
 
     get usefulUrlList(): IObject[] {
         return this._usefulUrlList.concat();
-    }
-
-    /**
-     * url初始化
-     */
-    private _urlStrategies: IObject = {
-        'String': () => {
-            this._canSwitchDefinition = false;
-            this._mainUrl = this._options.src;
-        },
-
-        'Object': () => {
-            this._canSwitchDefinition = true;
-            this._mainUrlMap = { ...this._options.src };
-        }
     }
 
     constructor(videoElement: HTMLVideoElement, options: IObject) {
@@ -208,13 +191,12 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
      * 初始化
      */
     protected init() {
-        if (!playerConfig.definition) {
-            playerConfig.definition = 'Auto';
+        if (!playerConfig.resolution) {
+            playerConfig.resolution = 'Auto';
         }
 
         try {
-            this._urlStrategies[NormalUtils.typeOf(this._options.src)]();
-            this._mainUrl = this.createMainUrl();
+            this.urlStrategies[NormalUtils.typeOf(this._options.src)]();
             this.initMediaEventsListener();
         } catch (e) {
             this.dispatchErrorEvent(ErrorTypeList.PLAYER_CORE_INIT_ERROR, `in VkdBasePlayer init: ${e.message}`, null);
@@ -222,48 +204,71 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     }
 
     /**
-     * 创建初始化url
+     * url初始化
      */
-    private createMainUrl() {
-        let baseUrl = null;
-        if (this._canSwitchDefinition) {
-            let _keys = Object.keys(this.mainUrlMap);
-            let _usefulUrl: IObject[] = [];
-            _keys.forEach((item: string) => {
-                if (this.mainUrlMap[item]) {
-                    _usefulUrl.push({
-                        url: this.mainUrlMap[item],
-                        key: item
-                    });
-                }
-            })
-            if (!_usefulUrl.length) {
-                this.errorHandler({
-                    message: `no userful url, core init failed!`
-                })
-                return;
-            }
-            this._usefulUrlList = _usefulUrl;
+    protected urlStrategies: IObject = {
+        'String': () => {
+            playerConfig.canSwitchResolution = false;
+            this._mainUrlMap = {
+                '240P': null,
+                '360P': null,
+                '480P': null,
+                '720P': null,
+                '1080P': null,
+                '4K': null,
+            };
+            this._usefulUrlList = [];
+            playerConfig.currentResolution = null;
+            this.mainUrl = this._options.src;
+        },
 
-            if (playerConfig.definition === 'Auto') {
-                // Auto分辨率下优先480P, 否则选择第一个可用src作为baseUrl
-                if (this.mainUrlMap['480P']) {
-                    baseUrl = this.mainUrlMap['480P'];
-                    this.currentDefinition = '480P';
-                } else {
-                    let _lastUrlObj = this._usefulUrlList[0];
-                    this.currentDefinition = _lastUrlObj.key;
-                    baseUrl = _lastUrlObj.url;
-                }
+        'Object': () => {
+            playerConfig.canSwitchResolution = true;
+            this.mainUrlMap = { ...this._options.src };
+            this.mainUrl = this.createCanSwitchMainUrl();
+        }
+    }
+
+    /**
+     * 创建可切换分辨率模式下的初始化url
+     */
+    private createCanSwitchMainUrl() {
+        let mainUrl = null;
+        let _keys = Object.keys(this.mainUrlMap);
+        let _usefulUrl: IObject[] = [];
+        _keys.forEach((item: string) => {
+            if (this.mainUrlMap[item]) {
+                _usefulUrl.push({
+                    url: this.mainUrlMap[item],
+                    key: item
+                });
+            }
+        })
+        if (!_usefulUrl.length) {
+            this.errorHandler({
+                message: `no userful url, core init failed!`
+            })
+            return;
+        }
+        this._usefulUrlList = _usefulUrl;
+
+        if (playerConfig.resolution === 'Auto') {
+            // Auto分辨率下优先480P, 否则选择第一个可用src作为baseUrl
+            if (this.mainUrlMap['480P']) {
+                mainUrl = this.mainUrlMap['480P'];
+                playerConfig.currentResolution = '480P';
             } else {
-                this.currentDefinition = playerConfig.definition;
-                baseUrl = this.mainUrlMap[playerConfig.definition];
+                let _lastUrlObj = this._usefulUrlList[0];
+                playerConfig.currentResolution = _lastUrlObj.key;
+                mainUrl = _lastUrlObj.url;
             }
         } else {
-            baseUrl = this.mainUrl;
+            playerConfig.currentResolution = playerConfig.resolution;
+            mainUrl = this.mainUrlMap[playerConfig.resolution];
         }
-        RuntimeLog.getInstance().log(`(player) init definition: ${this.currentDefinition}, mainUrl: ${baseUrl}`)
-        return baseUrl;
+
+        RuntimeLog.getInstance().log(`(player) init resolution: ${playerConfig.currentResolution}, mainUrl: ${mainUrl}`)
+        return mainUrl;
     }
 
     /**
@@ -319,13 +324,11 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
             }
         }
 
-        // if (name !== 'timeupdate') {
         EventCenter.getInstance().dispatchOutwardEvent('PlayerMediaEvent', {
             code: name,
             message: `H5 media event ${name} fired.`,
             data: _data
         }, originEvent);
-        // }
 
         this.emit(name, originEvent);
     }
@@ -405,11 +408,11 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
      * 响应网络环境变化事件
      */
     protected onNetworkSpeedChange = (e: IObject) => {
-        if (!this._canSwitchDefinition) return;
+        if (!playerConfig.canSwitchResolution) return;
 
         let targetDefinition = e.networkState
 
-        if (this.currentDefinition === targetDefinition) return;
+        if (playerConfig.currentDefinition === targetDefinition) return;
 
         if (this._switchDefinitionTimer) {
             clearTimeout(this._switchDefinitionTimer);
@@ -441,18 +444,18 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
          } */
 
         this._switchDefinitionTimer = window.setTimeout(() => {
-            this.currentDefinition = targetDefinition;
-            this.switchDefinition(this.currentDefinition);
+            playerConfig.currentDefinition = targetDefinition;
+            this.switchResolution(playerConfig.currentDefinition);
         }, playerConfig.networkSpeedChangeReflectTime);
 
-        RuntimeLog.getInstance().log(`(mp4) netwrok speed change event fired, config definition: ${playerConfig.definition}, current defunition: ${this.currentDefinition}, changed definition: ${e.networkState}`);
+        RuntimeLog.getInstance().log(`(mp4) netwrok speed change event fired, config definition: ${playerConfig.resolution}, current defunition: ${playerConfig.currentDefinition}, changed definition: ${e.networkState}`);
     }
 
     /**
      * 切换分辨率抽象方法
      * @param definition 
      */
-    abstract switchDefinition(definition: string): void;
+    abstract switchResolution(definition: string): void;
 
     /**
      * 清空队列和缓存buffer
@@ -499,10 +502,10 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
 
     /**
      * 改变分辨率
-     * @param definition 
+     * @param resolution 
      */
-    public changeResolution(definition: string) {
-        if (!this._canSwitchDefinition) {
+    public changeResolution(resolution: string) {
+        if (!playerConfig.canSwitchResolution) {
             RuntimeLog.getInstance().warning(`(player) cannot switch definition when only have one src!`);
             return;
         }
@@ -512,15 +515,15 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
             this._switchDefinitionTimer = undefined;
         }
 
-        if (playerConfig.definition !== definition) {
-            playerConfig.definition = definition;
+        if (playerConfig.resolution !== resolution) {
+            playerConfig.resolution = resolution;
             /**
              * 如果 其他分辨率 => Auto 则不立即切换, 后续切换逻辑网速监控来完成
              * 否则 Auto => 其他分辨率 则立刻切换
              */
-            if (definition !== 'Auto') {
-                this.currentDefinition = definition;
-                this.switchDefinition(definition);
+            if (resolution !== 'Auto') {
+                playerConfig.currentResolution = resolution;
+                this.switchResolution(resolution);
             }
         }
     }

@@ -11,6 +11,7 @@ import RuntimeLog from '../../../log/RuntimeLog';
 import Buffer from "../Buffer";
 import { playerConfig } from '../../../config/MediaPlayerConfig';
 import EventCenter from '../../../events/EventCenter';
+import Scheduler from '../../Scheduler';
 
 class VkdMP4Player extends VkdBasePlayer {
     private _mp4: MP4;
@@ -22,10 +23,15 @@ class VkdMP4Player extends VkdBasePlayer {
         super(element, options);
         if (!MSE.isSupported('video/mp4; codecs="avc1.64001E, mp4a.40.5"')) return;
         this.init();
+        Scheduler.getInstance().registerTask({
+            id: 'MSE_APPEND_TASK',
+            func: this.appendMediaBuffer,
+            delta: 150,
+        })
     }
 
     private errorHandler = (err: IObject) => {
-        if(!err) err = {
+        if (!err) err = {
             code: ErrorTypeList.UNKNOWN_ERROR,
             message: `(player) unknow error catch!`
         }
@@ -49,6 +55,9 @@ class VkdMP4Player extends VkdBasePlayer {
             this._mp4.on('error', (err) => {
                 this.errorHandler(err);
             });
+            this._mediaDataLoader.on('load', this.onMediaLoaderLoad);
+            this._mediaDataLoader.on('error', this.errorHandler);
+            this._mediaDataLoader.on('networkSpeedChange', this.onNetworkSpeedChange);
         }).catch((err) => {
             this.errorHandler(err);
         });
@@ -87,9 +96,6 @@ class VkdMP4Player extends VkdBasePlayer {
                     timeScale: data.timeScale,
                     mdatStart: data.mdatStart
                 })
-                mediaDataTask.on('load', this.onMediaLoaderLoad);
-                mediaDataTask.on('error', this.errorHandler);
-                mediaDataTask.on('networkSpeedChange', this.onNetworkSpeedChange);
 
                 resolve({ mp4, mse, mediaDataTask });
             });
@@ -117,7 +123,7 @@ class VkdMP4Player extends VkdBasePlayer {
      */
     private handleNextTask = () => {
         if (!this._mp4 || !this._taskQueue.length || this._taskHandling) return;
-        
+
         this._taskHandling = true;
         let _task = this._taskQueue.shift();
 
@@ -126,19 +132,7 @@ class VkdMP4Player extends VkdBasePlayer {
 
         this._mp4.createFragment(_task.buffer, _task.start, _task.id).then((buffer: Uint8Array) => {
             if (buffer) {
-                this._mediaBufferCache.write(new Uint8Array(buffer));
-                if (this.canSwitchDefinition) {
-                    if ((this._mediaBufferCache.buffer.byteLength >= playerConfig.playerAppendMinBufferLengthMap[this.currentDefinition]) ||
-                        _task.isLast) {
-                        this._mediaSegmentsQueue.push(this._mediaBufferCache.buffer.slice(0));
-                        this._mediaBufferCache = new Buffer();
-                        this.appendMediaBuffer();
-                    }
-                } else {
-                    this._mediaSegmentsQueue.push(this._mediaBufferCache.buffer.slice(0));
-                    this._mediaBufferCache = new Buffer();
-                    this.appendMediaBuffer();
-                }
+                this._mediaSegmentsQueue.push(buffer);
             }
         }).catch((err) => {
             this.errorHandler(err);
@@ -166,28 +160,23 @@ class VkdMP4Player extends VkdBasePlayer {
      * 切流
      * @param url 
      */
-    switchDefinition(definition: string) {
-        if (!this.mainUrlMap[definition]) {
+    switchResolution(resolution: string) {
+        if (!this.mainUrlMap[resolution]) {
             // TODO: 先取消报错, 直接放弃切流
             // this.errorHandler({
-            //     message: `no userful ${definition} src.`
+            //     message: `no userful ${resolution} src.`
             // })
             return;
         }
-        let url = this.mainUrlMap[definition];
+        let url = this.mainUrlMap[resolution];
 
         //如果目标分辨率不存在或正处于切流中, 放弃切流
-        if (!definition || this._switchingDefinition) return;
-        this.clearCache();
+        if (!resolution || this._switchingDefinition) return;
 
         //如果剩余时间小于当前播放时间+切换预置时间, 放弃切流
-        if (this.currentTime + playerConfig.playerPreSwitchTime >= this.duration) {
-            return;
-        }
+        if (this.currentTime + playerConfig.playerPreSwitchTime >= this.duration) return;
 
-        let _currentTime = this.currentTime;
-        let _switchStartTime: number = this._mediaDataLoader.getFrameTimeByTime(_currentTime + playerConfig.playerPreSwitchTime);
-
+        let _switchStartTime: number = this._mediaDataLoader.getFrameTimeByTime(this.currentTime + playerConfig.playerPreSwitchTime);
         //判断当前播放所处缓冲区域的结尾时间是否大于预置时间, 优先时间长者
         if (this.buffered.length) {
             for (let i = 0; i < this.buffered.length; i++) {
@@ -200,21 +189,22 @@ class VkdMP4Player extends VkdBasePlayer {
             }
         }
 
+        //卸载mp4和loader, 清空队列
+        this.clearCache();
+        this._mp4.removeAllListeners();
+        this._mp4 = undefined;
         this._mediaDataLoader.abort(); //取消当前下载器任务
         this._mediaDataLoader.removeAllListeners();
         this._mediaDataLoader = undefined;
-        //取消当前下载后设置状态为切换中
-        this.currentDefinition = definition;
+        playerConfig.currentResolution = resolution;
+
+        //取消当前下载后设置状态为切换中(//TODO 更新到状态管理)
         this._switchingDefinition = true;
         this.createMP4Runtime(url).then((result: IObject) => {
-            if (_switchStartTime === null) {
-                //返回null说明预置时间已经处于最后一个gap中, 放弃切流
-                RuntimeLog.getInstance().log('(player) switch start time illegal, prevent switch definition');
-                return;
-            }
+            //返回null说明预置时间已经处于最后一个gap中, 放弃切流
+            if (_switchStartTime === null) return;
 
-            //卸载并重新初始化mp4模块
-            this._mp4.removeAllListeners();
+            //重新初始化mp4
             this._mp4 = result.mp4;
             this._mp4.on('error', (err) => {
                 this.errorHandler(err);
@@ -222,8 +212,13 @@ class VkdMP4Player extends VkdBasePlayer {
             this._mp4.createInitSegment().then((res: ArrayBuffer) => {
                 this._mse.appendInitBuffer(res);
             })
-            //卸载并重新初始化 media data loader
+            //重新初始化 media data loader
             this._mediaDataLoader = result.mediaDataTask;
+            this._mediaDataLoader.on('load', this.onMediaLoaderLoad);
+            this._mediaDataLoader.on('error', this.errorHandler);
+            this._mediaDataLoader.on('networkSpeedChange', this.onNetworkSpeedChange);
+
+            //是否触发预下载
             if (_switchStartTime >= this.currentTime + playerConfig.triggerNextLoadRangeTime) return;
             this._mediaDataLoader.seek(_switchStartTime);
         }).catch((e: unknown) => {
@@ -245,7 +240,6 @@ class VkdMP4Player extends VkdBasePlayer {
                     this.play();
                 }
             }, 0)
-
         }
     }
 

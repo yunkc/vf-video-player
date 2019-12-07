@@ -4861,7 +4861,7 @@ exports.SensorEventType = {
  * 播放器默认配置
  */
 exports.playerConfig = {
-    definition: 'Auto',
+    resolution: 'Auto',
     autoplay: false,
     muted: false,
     loop: false,
@@ -4871,7 +4871,7 @@ exports.playerConfig = {
     volume: 1,
     src: '',
     playbackRate: 1,
-    preLoadTime: 3 * 60,
+    preloadTime: 3 * 60,
     triggerNextLoadRangeTime: 2 * 60,
     autoCleanupMaxDuration: 3 * 60,
     autoCleanupMinDuration: 2 * 60,
@@ -4884,9 +4884,11 @@ exports.playerConfig = {
         '4K': 1048576 * 3,
     },
     playerPreSwitchTime: 3,
-    playerWaitingHandlerTime: 3000,
+    playerWaitingHandlerTime: 2000,
     playerEndGapTime: 0.5,
     networkSpeedChangeReflectTime: 5000,
+    canSwitchResolution: false,
+    currentResolution: null,
 };
 var playerConfigManager = /** @class */ (function () {
     function playerConfigManager() {
@@ -4960,6 +4962,7 @@ var VkdMP4Player_1 = __webpack_require__(/*! ./vkd/mp4/VkdMP4Player */ "./src/co
 var VkdHLSPlayer_1 = __webpack_require__(/*! ./vkd/hls/VkdHLSPlayer */ "./src/core/vkd/hls/VkdHLSPlayer.ts");
 var FMP4Worker_1 = __webpack_require__(/*! ./vkd/FMP4Worker */ "./src/core/vkd/FMP4Worker.ts");
 var MediaPlayerConfig_1 = __webpack_require__(/*! ../config/MediaPlayerConfig */ "./src/config/MediaPlayerConfig.ts");
+var Scheduler_1 = __webpack_require__(/*! ./Scheduler */ "./src/core/Scheduler.ts");
 /**
  * Manager配置项接口
  */
@@ -5058,6 +5061,8 @@ var CorePlayerManager = /** @class */ (function () {
                 data: null,
             });
         }
+        //初始化调度器
+        Scheduler_1.default.getInstance();
         //初始化碎片MP4 worker
         FMP4Worker_1.default.getInstance();
         //设置player配置项
@@ -5302,7 +5307,7 @@ var CorePlayerManager = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(CorePlayerManager.prototype, "srcList", {
+    Object.defineProperty(CorePlayerManager.prototype, "resolutions", {
         get: function () {
             return this._playerCore.usefulUrlList;
         },
@@ -5338,6 +5343,7 @@ var CorePlayerManager = /** @class */ (function () {
     };
     CorePlayerManager.prototype.dispose = function () {
         //移除所有事件, 注销worker
+        Scheduler_1.default.getInstance().dispose();
         FMP4Worker_1.default.getInstance().worker.terminate();
         this._playerCore.dispose();
     };
@@ -5397,6 +5403,96 @@ var PlayerStateManager = /** @class */ (function () {
     return PlayerStateManager;
 }());
 exports.default = PlayerStateManager;
+var PrivateClass = /** @class */ (function () {
+    function PrivateClass() {
+    }
+    return PrivateClass;
+}());
+
+
+/***/ }),
+
+/***/ "./src/core/Scheduler.ts":
+/*!*******************************!*\
+  !*** ./src/core/Scheduler.ts ***!
+  \*******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * 全局时间调度器
+ */
+var RuntimeLog_1 = __webpack_require__(/*! ../log/RuntimeLog */ "./src/log/RuntimeLog.ts");
+var _instance;
+var Scheduler = /** @class */ (function () {
+    function Scheduler(sign) {
+        var _this = this;
+        this._taskArr = [];
+        this._reqId = -1;
+        /**
+         * 更新
+         */
+        this.update = function () {
+            _this._reqId = window.requestAnimationFrame(_this.update);
+            _this._taskArr.every(function (item) {
+                item.endTime = Date.now();
+                if (item.endTime - item.startTime >= item.delta) {
+                    item.func();
+                    item.startTime = item.endTime;
+                }
+            });
+        };
+        if (sign !== PrivateClass) {
+            RuntimeLog_1.default.getInstance().error('class Scheduler is singleton, do not use new operator!');
+            return;
+        }
+        this.update();
+    }
+    Scheduler.getInstance = function () {
+        if (!_instance) {
+            _instance = new Scheduler(PrivateClass);
+        }
+        return _instance;
+    };
+    /**
+     * 向调度器中注册定时任务
+     * @param instance
+     */
+    Scheduler.prototype.registerTask = function (taskObj) {
+        taskObj.startTime = Date.now();
+        taskObj.endTime = Date.now();
+        this._taskArr.push(taskObj);
+    };
+    /**
+     * 通过id从调度器中删除定时任务
+     */
+    Scheduler.prototype.removeTaskById = function (id) {
+        var _this = this;
+        this._taskArr.every(function (item, idx) {
+            if (item.id === id) {
+                _this._taskArr.splice(idx, 1);
+                return false;
+            }
+            else {
+                return true;
+            }
+        });
+    };
+    /**
+     * 销毁
+     */
+    Scheduler.prototype.dispose = function () {
+        if (this._reqId)
+            window.cancelAnimationFrame(this._reqId);
+        this._taskArr.length = 0;
+        _instance = null;
+    };
+    return Scheduler;
+}());
+exports.default = Scheduler;
 var PrivateClass = /** @class */ (function () {
     function PrivateClass() {
     }
@@ -7717,8 +7813,6 @@ var VkdBasePlayer = /** @class */ (function (_super) {
             '1080P': null,
             '4K': null,
         };
-        _this._canSwitchDefinition = false;
-        _this._currentDefinition = null;
         _this._usefulUrlList = [];
         _this._switchDefinitionTimer = null;
         _this._switchingDefinition = false;
@@ -7729,14 +7823,25 @@ var VkdBasePlayer = /** @class */ (function (_super) {
         /**
          * url初始化
          */
-        _this._urlStrategies = {
+        _this.urlStrategies = {
             'String': function () {
-                _this._canSwitchDefinition = false;
-                _this._mainUrl = _this._options.src;
+                MediaPlayerConfig_1.playerConfig.canSwitchResolution = false;
+                _this._mainUrlMap = {
+                    '240P': null,
+                    '360P': null,
+                    '480P': null,
+                    '720P': null,
+                    '1080P': null,
+                    '4K': null,
+                };
+                _this._usefulUrlList = [];
+                MediaPlayerConfig_1.playerConfig.currentResolution = null;
+                _this.mainUrl = _this._options.src;
             },
             'Object': function () {
-                _this._canSwitchDefinition = true;
-                _this._mainUrlMap = __assign({}, _this._options.src);
+                MediaPlayerConfig_1.playerConfig.canSwitchResolution = true;
+                _this.mainUrlMap = __assign({}, _this._options.src);
+                _this.mainUrl = _this.createCanSwitchMainUrl();
             }
         };
         /**
@@ -7768,10 +7873,10 @@ var VkdBasePlayer = /** @class */ (function (_super) {
          * 响应网络环境变化事件
          */
         _this.onNetworkSpeedChange = function (e) {
-            if (!_this._canSwitchDefinition)
+            if (!MediaPlayerConfig_1.playerConfig.canSwitchResolution)
                 return;
             var targetDefinition = e.networkState;
-            if (_this.currentDefinition === targetDefinition)
+            if (MediaPlayerConfig_1.playerConfig.currentDefinition === targetDefinition)
                 return;
             if (_this._switchDefinitionTimer) {
                 clearTimeout(_this._switchDefinitionTimer);
@@ -7801,10 +7906,10 @@ var VkdBasePlayer = /** @class */ (function (_super) {
                  }
              } */
             _this._switchDefinitionTimer = window.setTimeout(function () {
-                _this.currentDefinition = targetDefinition;
-                _this.switchDefinition(_this.currentDefinition);
+                MediaPlayerConfig_1.playerConfig.currentDefinition = targetDefinition;
+                _this.switchResolution(MediaPlayerConfig_1.playerConfig.currentDefinition);
             }, MediaPlayerConfig_1.playerConfig.networkSpeedChangeReflectTime);
-            RuntimeLog_1.default.getInstance().log("(mp4) netwrok speed change event fired, config definition: " + MediaPlayerConfig_1.playerConfig.definition + ", current defunition: " + _this.currentDefinition + ", changed definition: " + e.networkState);
+            RuntimeLog_1.default.getInstance().log("(mp4) netwrok speed change event fired, config definition: " + MediaPlayerConfig_1.playerConfig.resolution + ", current defunition: " + MediaPlayerConfig_1.playerConfig.currentDefinition + ", changed definition: " + e.networkState);
         };
         _this._video = videoElement;
         _this._options = options;
@@ -7971,6 +8076,9 @@ var VkdBasePlayer = /** @class */ (function (_super) {
         get: function () {
             return this._mainUrl;
         },
+        set: function (value) {
+            this._mainUrl = value;
+        },
         enumerable: true,
         configurable: true
     });
@@ -7978,15 +8086,8 @@ var VkdBasePlayer = /** @class */ (function (_super) {
         get: function () {
             return this._mainUrlMap;
         },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(VkdBasePlayer.prototype, "currentDefinition", {
-        get: function () {
-            return this._currentDefinition;
-        },
         set: function (value) {
-            this._currentDefinition = value;
+            this._mainUrlMap = value;
         },
         enumerable: true,
         configurable: true
@@ -8002,12 +8103,11 @@ var VkdBasePlayer = /** @class */ (function (_super) {
      * 初始化
      */
     VkdBasePlayer.prototype.init = function () {
-        if (!MediaPlayerConfig_1.playerConfig.definition) {
-            MediaPlayerConfig_1.playerConfig.definition = 'Auto';
+        if (!MediaPlayerConfig_1.playerConfig.resolution) {
+            MediaPlayerConfig_1.playerConfig.resolution = 'Auto';
         }
         try {
-            this._urlStrategies[NormalUtils_1.default.typeOf(this._options.src)]();
-            this._mainUrl = this.createMainUrl();
+            this.urlStrategies[NormalUtils_1.default.typeOf(this._options.src)]();
             this.initMediaEventsListener();
         }
         catch (e) {
@@ -8015,51 +8115,46 @@ var VkdBasePlayer = /** @class */ (function (_super) {
         }
     };
     /**
-     * 创建初始化url
+     * 创建可切换分辨率模式下的初始化url
      */
-    VkdBasePlayer.prototype.createMainUrl = function () {
+    VkdBasePlayer.prototype.createCanSwitchMainUrl = function () {
         var _this = this;
-        var baseUrl = null;
-        if (this._canSwitchDefinition) {
-            var _keys = Object.keys(this.mainUrlMap);
-            var _usefulUrl_1 = [];
-            _keys.forEach(function (item) {
-                if (_this.mainUrlMap[item]) {
-                    _usefulUrl_1.push({
-                        url: _this.mainUrlMap[item],
-                        key: item
-                    });
-                }
-            });
-            if (!_usefulUrl_1.length) {
-                this.errorHandler({
-                    message: "no userful url, core init failed!"
+        var mainUrl = null;
+        var _keys = Object.keys(this.mainUrlMap);
+        var _usefulUrl = [];
+        _keys.forEach(function (item) {
+            if (_this.mainUrlMap[item]) {
+                _usefulUrl.push({
+                    url: _this.mainUrlMap[item],
+                    key: item
                 });
-                return;
             }
-            this._usefulUrlList = _usefulUrl_1;
-            if (MediaPlayerConfig_1.playerConfig.definition === 'Auto') {
-                // Auto分辨率下优先480P, 否则选择第一个可用src作为baseUrl
-                if (this.mainUrlMap['480P']) {
-                    baseUrl = this.mainUrlMap['480P'];
-                    this.currentDefinition = '480P';
-                }
-                else {
-                    var _lastUrlObj = this._usefulUrlList[0];
-                    this.currentDefinition = _lastUrlObj.key;
-                    baseUrl = _lastUrlObj.url;
-                }
+        });
+        if (!_usefulUrl.length) {
+            this.errorHandler({
+                message: "no userful url, core init failed!"
+            });
+            return;
+        }
+        this._usefulUrlList = _usefulUrl;
+        if (MediaPlayerConfig_1.playerConfig.resolution === 'Auto') {
+            // Auto分辨率下优先480P, 否则选择第一个可用src作为baseUrl
+            if (this.mainUrlMap['480P']) {
+                mainUrl = this.mainUrlMap['480P'];
+                MediaPlayerConfig_1.playerConfig.currentResolution = '480P';
             }
             else {
-                this.currentDefinition = MediaPlayerConfig_1.playerConfig.definition;
-                baseUrl = this.mainUrlMap[MediaPlayerConfig_1.playerConfig.definition];
+                var _lastUrlObj = this._usefulUrlList[0];
+                MediaPlayerConfig_1.playerConfig.currentResolution = _lastUrlObj.key;
+                mainUrl = _lastUrlObj.url;
             }
         }
         else {
-            baseUrl = this.mainUrl;
+            MediaPlayerConfig_1.playerConfig.currentResolution = MediaPlayerConfig_1.playerConfig.resolution;
+            mainUrl = this.mainUrlMap[MediaPlayerConfig_1.playerConfig.resolution];
         }
-        RuntimeLog_1.default.getInstance().log("(player) init definition: " + this.currentDefinition + ", mainUrl: " + baseUrl);
-        return baseUrl;
+        RuntimeLog_1.default.getInstance().log("(player) init resolution: " + MediaPlayerConfig_1.playerConfig.currentResolution + ", mainUrl: " + mainUrl);
+        return mainUrl;
     };
     /**
      * 初始化媒体事件监听器
@@ -8104,13 +8199,11 @@ var VkdBasePlayer = /** @class */ (function (_super) {
                 RuntimeLog_1.default.getInstance().log('special handle ended event in WX browser (not iOS).');
             }
         }
-        // if (name !== 'timeupdate') {
         EventCenter_1.default.getInstance().dispatchOutwardEvent('PlayerMediaEvent', {
             code: name,
             message: "H5 media event " + name + " fired.",
             data: _data
         }, originEvent);
-        // }
         this.emit(name, originEvent);
     };
     /**
@@ -8198,10 +8291,10 @@ var VkdBasePlayer = /** @class */ (function (_super) {
     };
     /**
      * 改变分辨率
-     * @param definition
+     * @param resolution
      */
-    VkdBasePlayer.prototype.changeResolution = function (definition) {
-        if (!this._canSwitchDefinition) {
+    VkdBasePlayer.prototype.changeResolution = function (resolution) {
+        if (!MediaPlayerConfig_1.playerConfig.canSwitchResolution) {
             RuntimeLog_1.default.getInstance().warning("(player) cannot switch definition when only have one src!");
             return;
         }
@@ -8209,15 +8302,15 @@ var VkdBasePlayer = /** @class */ (function (_super) {
             clearTimeout(this._switchDefinitionTimer);
             this._switchDefinitionTimer = undefined;
         }
-        if (MediaPlayerConfig_1.playerConfig.definition !== definition) {
-            MediaPlayerConfig_1.playerConfig.definition = definition;
+        if (MediaPlayerConfig_1.playerConfig.resolution !== resolution) {
+            MediaPlayerConfig_1.playerConfig.resolution = resolution;
             /**
              * 如果 其他分辨率 => Auto 则不立即切换, 后续切换逻辑网速监控来完成
              * 否则 Auto => 其他分辨率 则立刻切换
              */
-            if (definition !== 'Auto') {
-                this.currentDefinition = definition;
-                this.switchDefinition(definition);
+            if (resolution !== 'Auto') {
+                MediaPlayerConfig_1.playerConfig.currentResolution = resolution;
+                this.switchResolution(resolution);
             }
         }
     };
@@ -9057,7 +9150,7 @@ var VkdHLSPlayer = /** @class */ (function (_super) {
     VkdHLSPlayer.prototype.start = function (url) {
         _super.prototype.start.call(this, url);
     };
-    VkdHLSPlayer.prototype.switchDefinition = function (definition) {
+    VkdHLSPlayer.prototype.switchResolution = function (definition) {
         throw new Error("Method not implemented.");
     };
     return VkdHLSPlayer;
@@ -11996,7 +12089,7 @@ var MediaDataTask = /** @class */ (function (_super) {
             videoElement: null,
             videoKeyFrames: [],
             audioKeyFrames: [],
-            preloadTime: MediaPlayerConfig_1.playerConfig.preLoadTime,
+            preloadTime: MediaPlayerConfig_1.playerConfig.preloadTime,
             timeScale: 1,
             mdatStart: 0,
         };
@@ -12143,7 +12236,7 @@ var MediaDataTask = /** @class */ (function (_super) {
             speed: _networkSpeed,
             netState: _tempNetState
         });
-        if (this._netState !== _tempNetState && MediaPlayerConfig_1.playerConfig.definition === 'Auto') {
+        if (this._netState !== _tempNetState && MediaPlayerConfig_1.playerConfig.resolution === 'Auto') {
             this._netState = _tempNetState;
             RuntimeLog_1.default.getInstance().log("media data task networkSpeedChange event fired");
             this.emit('networkSpeedChange', {
@@ -12229,21 +12322,16 @@ var MediaDataTask = /** @class */ (function (_super) {
      * @param time
      */
     MediaDataTask.prototype.checkNeedNextRangeLoad = function (time) {
-        if (this._preloadIndex >= this._videoKeyFrames.length - 1)
+        if (this._preloadIndex > this._videoKeyFrames.length - 2)
             return;
         var _currentTime = time;
         //获取当前帧结尾 | 下一帧开始时间
-        var _startTime = this._videoKeyFrames[this._preloadIndex].time.time;
-        var _duration = this._videoKeyFrames[this._preloadIndex].time.duration;
-        var _endTime = (_startTime + _duration) / this._timeScale;
-        // RuntimeLog.getInstance().log(`checkNeedNextRangeLoad called, currentTime: ${_currentTime}, _endTime: ${_endTime}, _preloadIndex${this._preloadIndex}`);
-        if (_endTime - _currentTime <= MediaPlayerConfig_1.playerConfig.triggerNextLoadRangeTime) {
-            var _time = _endTime + 1;
-            var _seekIdx = this.getIndexByTime(_time);
-            this._keepLoadedIndex = _seekIdx;
-            var _seekEndIdx = this.getIndexByTime(_time + this._preloadTime);
-            this._preloadIndex = _seekEndIdx;
-            this.createNextKeepLoader();
+        var _startTime = this._videoKeyFrames[this._preloadIndex].time.time / this._timeScale;
+        var _endTime = this._videoKeyFrames[this._preloadIndex].time.time;
+        // let _endTime = (_startTime + _duration) / this._timeScale;
+        if (_startTime - _currentTime <= MediaPlayerConfig_1.playerConfig.triggerNextLoadRangeTime) {
+            RuntimeLog_1.default.getInstance().log("trigger preload, currentTime: " + _currentTime + ", _endTime: " + _startTime + ", triggerNextLoadRangeTime: " + MediaPlayerConfig_1.playerConfig.triggerNextLoadRangeTime);
+            this.seek(_startTime);
         }
     };
     return MediaDataTask;
@@ -12702,8 +12790,8 @@ var MP4_1 = __webpack_require__(/*! ./MP4 */ "./src/core/vkd/mp4/MP4.ts");
 var ErrorTypeList_1 = __webpack_require__(/*! ../../../config/ErrorTypeList */ "./src/config/ErrorTypeList.ts");
 var MediaDataTask_1 = __webpack_require__(/*! ./MediaDataTask */ "./src/core/vkd/mp4/MediaDataTask.ts");
 var RuntimeLog_1 = __webpack_require__(/*! ../../../log/RuntimeLog */ "./src/log/RuntimeLog.ts");
-var Buffer_1 = __webpack_require__(/*! ../Buffer */ "./src/core/vkd/Buffer.ts");
 var MediaPlayerConfig_1 = __webpack_require__(/*! ../../../config/MediaPlayerConfig */ "./src/config/MediaPlayerConfig.ts");
+var Scheduler_1 = __webpack_require__(/*! ../../Scheduler */ "./src/core/Scheduler.ts");
 var VkdMP4Player = /** @class */ (function (_super) {
     __extends(VkdMP4Player, _super);
     function VkdMP4Player(element, options) {
@@ -12745,20 +12833,7 @@ var VkdMP4Player = /** @class */ (function (_super) {
             RuntimeLog_1.default.getInstance().log("(player) handle next task, task id: " + _task.id);
             _this._mp4.createFragment(_task.buffer, _task.start, _task.id).then(function (buffer) {
                 if (buffer) {
-                    _this._mediaBufferCache.write(new Uint8Array(buffer));
-                    if (_this.canSwitchDefinition) {
-                        if ((_this._mediaBufferCache.buffer.byteLength >= MediaPlayerConfig_1.playerConfig.playerAppendMinBufferLengthMap[_this.currentDefinition]) ||
-                            _task.isLast) {
-                            _this._mediaSegmentsQueue.push(_this._mediaBufferCache.buffer.slice(0));
-                            _this._mediaBufferCache = new Buffer_1.default();
-                            _this.appendMediaBuffer();
-                        }
-                    }
-                    else {
-                        _this._mediaSegmentsQueue.push(_this._mediaBufferCache.buffer.slice(0));
-                        _this._mediaBufferCache = new Buffer_1.default();
-                        _this.appendMediaBuffer();
-                    }
+                    _this._mediaSegmentsQueue.push(buffer);
                 }
             }).catch(function (err) {
                 _this.errorHandler(err);
@@ -12847,6 +12922,11 @@ var VkdMP4Player = /** @class */ (function (_super) {
         if (!MSE_1.default.isSupported('video/mp4; codecs="avc1.64001E, mp4a.40.5"'))
             return _this;
         _this.init();
+        Scheduler_1.default.getInstance().registerTask({
+            id: 'MSE_APPEND_TASK',
+            func: _this.appendMediaBuffer,
+            delta: 150,
+        });
         return _this;
     }
     /**
@@ -12863,6 +12943,9 @@ var VkdMP4Player = /** @class */ (function (_super) {
             _this._mp4.on('error', function (err) {
                 _this.errorHandler(err);
             });
+            _this._mediaDataLoader.on('load', _this.onMediaLoaderLoad);
+            _this._mediaDataLoader.on('error', _this.errorHandler);
+            _this._mediaDataLoader.on('networkSpeedChange', _this.onNetworkSpeedChange);
         }).catch(function (err) {
             _this.errorHandler(err);
         });
@@ -12901,9 +12984,6 @@ var VkdMP4Player = /** @class */ (function (_super) {
                     timeScale: data.timeScale,
                     mdatStart: data.mdatStart
                 });
-                mediaDataTask.on('load', _this.onMediaLoaderLoad);
-                mediaDataTask.on('error', _this.errorHandler);
-                mediaDataTask.on('networkSpeedChange', _this.onNetworkSpeedChange);
                 resolve({ mp4: mp4, mse: mse, mediaDataTask: mediaDataTask });
             });
             mp4.on('error', function (e) {
@@ -12916,26 +12996,23 @@ var VkdMP4Player = /** @class */ (function (_super) {
      * 切流
      * @param url
      */
-    VkdMP4Player.prototype.switchDefinition = function (definition) {
+    VkdMP4Player.prototype.switchResolution = function (resolution) {
         var _this = this;
-        if (!this.mainUrlMap[definition]) {
+        if (!this.mainUrlMap[resolution]) {
             // TODO: 先取消报错, 直接放弃切流
             // this.errorHandler({
-            //     message: `no userful ${definition} src.`
+            //     message: `no userful ${resolution} src.`
             // })
             return;
         }
-        var url = this.mainUrlMap[definition];
+        var url = this.mainUrlMap[resolution];
         //如果目标分辨率不存在或正处于切流中, 放弃切流
-        if (!definition || this._switchingDefinition)
+        if (!resolution || this._switchingDefinition)
             return;
-        this.clearCache();
         //如果剩余时间小于当前播放时间+切换预置时间, 放弃切流
-        if (this.currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime >= this.duration) {
+        if (this.currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime >= this.duration)
             return;
-        }
-        var _currentTime = this.currentTime;
-        var _switchStartTime = this._mediaDataLoader.getFrameTimeByTime(_currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime);
+        var _switchStartTime = this._mediaDataLoader.getFrameTimeByTime(this.currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime);
         //判断当前播放所处缓冲区域的结尾时间是否大于预置时间, 优先时间长者
         if (this.buffered.length) {
             for (var i = 0; i < this.buffered.length; i++) {
@@ -12947,20 +13024,21 @@ var VkdMP4Player = /** @class */ (function (_super) {
                 }
             }
         }
+        //卸载mp4和loader, 清空队列
+        this.clearCache();
+        this._mp4.removeAllListeners();
+        this._mp4 = undefined;
         this._mediaDataLoader.abort(); //取消当前下载器任务
         this._mediaDataLoader.removeAllListeners();
         this._mediaDataLoader = undefined;
-        //取消当前下载后设置状态为切换中
-        this.currentDefinition = definition;
+        MediaPlayerConfig_1.playerConfig.currentResolution = resolution;
+        //取消当前下载后设置状态为切换中(//TODO 更新到状态管理)
         this._switchingDefinition = true;
         this.createMP4Runtime(url).then(function (result) {
-            if (_switchStartTime === null) {
-                //返回null说明预置时间已经处于最后一个gap中, 放弃切流
-                RuntimeLog_1.default.getInstance().log('(player) switch start time illegal, prevent switch definition');
+            //返回null说明预置时间已经处于最后一个gap中, 放弃切流
+            if (_switchStartTime === null)
                 return;
-            }
-            //卸载并重新初始化mp4模块
-            _this._mp4.removeAllListeners();
+            //重新初始化mp4
             _this._mp4 = result.mp4;
             _this._mp4.on('error', function (err) {
                 _this.errorHandler(err);
@@ -12968,8 +13046,12 @@ var VkdMP4Player = /** @class */ (function (_super) {
             _this._mp4.createInitSegment().then(function (res) {
                 _this._mse.appendInitBuffer(res);
             });
-            //卸载并重新初始化 media data loader
+            //重新初始化 media data loader
             _this._mediaDataLoader = result.mediaDataTask;
+            _this._mediaDataLoader.on('load', _this.onMediaLoaderLoad);
+            _this._mediaDataLoader.on('error', _this.errorHandler);
+            _this._mediaDataLoader.on('networkSpeedChange', _this.onNetworkSpeedChange);
+            //是否触发预下载
             if (_switchStartTime >= _this.currentTime + MediaPlayerConfig_1.playerConfig.triggerNextLoadRangeTime)
                 return;
             _this._mediaDataLoader.seek(_switchStartTime);
@@ -13209,7 +13291,6 @@ exports.CommandEvents = {
     //枚举value值必须和函数名对应
     DIMENSION: 'dimension',
     CHANGE_SRC: 'changeSrc',
-    CHANGE_DEFINITION: 'changeDefinition',
     DISPOSE: 'dispose',
     ENTER_FULL_SCREEN: 'enterFullScreen',
     EXIT_FULL_SCREEN: 'exitFullScreen',
@@ -13218,7 +13299,7 @@ exports.CommandEvents = {
     REPLAY: 'replay',
     RESET: 'reset',
     SET_CURRENT_TIME_BY_PERCENT: 'setCurrentTimeByPercent',
-    SWITCH_DEFINITION: 'switchDefinition',
+    CHANGE_RESOLUTION: 'changeResolution',
 };
 exports.PropEvents = {
     ASPECTRATIO: 'aspectRatio',
@@ -13242,7 +13323,7 @@ exports.PropEvents = {
     AUTOPLAY: 'autoplay',
     SUPPORT_FULL_SCREEN: 'supportFullScreen',
     FULL_SCREEN_STATE: 'fullScreenState',
-    DEFINITION: 'definition',
+    RESOLUTIONS: 'resolutions',
     CONTROLS: 'controls'
 };
 exports.WorkerEvents = {
@@ -13602,12 +13683,12 @@ var MediaPlayer = /** @class */ (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(MediaPlayer.prototype, "srcList", {
+    Object.defineProperty(MediaPlayer.prototype, "resolutions", {
         /**
          * 获取分辨率
          */
         get: function () {
-            return this._globalAPI.getCorePropertyByName('srcList');
+            return this._globalAPI.getCorePropertyByName('resolutions');
         },
         enumerable: true,
         configurable: true
@@ -13689,13 +13770,6 @@ var MediaPlayer = /** @class */ (function (_super) {
      */
     MediaPlayer.prototype.changeSrc = function (source) {
         this._globalAPI.callFuncByName('changeSrc', source);
-    };
-    /**
-     * 切换分辨率
-     * @param definition
-     */
-    MediaPlayer.prototype.changeDefinition = function (definition) {
-        this._globalAPI.callFuncByName('changeDefinition', definition);
     };
     /**
      * 进入全屏
