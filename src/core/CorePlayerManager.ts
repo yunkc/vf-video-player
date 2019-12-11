@@ -24,6 +24,8 @@ export default class CorePlayerManager implements IPlayerCore {
     [key: string]: any;
 
     private _playerCore: any;
+    private _player_id: string;
+    private _videoElement: HTMLVideoElement;
 
     constructor(options: IObject) {
         RuntimeLog.getInstance().log('player core manager is loading...');
@@ -32,15 +34,18 @@ export default class CorePlayerManager implements IPlayerCore {
     }
 
     /**
-     * 创建视频渲染载体
-     * @param {string} id
-     * @param {string[]} classList
-     * @returns {HTMLVideoElement}
+     * 创建video标签
+     * @param {IObject} config
      */
-    private createVideoElement(id: string, classList: string[]): HTMLVideoElement {
+    private createVideoElement(videoConfig: IObject): HTMLVideoElement {
         let _tempElement = document.createElement('video') as HTMLVideoElement;
-        //attributes
-        _tempElement.setAttribute('id', id);
+        //style
+        _tempElement.style.backgroundColor = 'black';
+        _tempElement.style.padding = '0px';
+        _tempElement.style.outline = 'none';
+        //properties
+        this._player_id = videoConfig.id || NormalUtils.generateUUID();
+        _tempElement.setAttribute('id', this._player_id);
         _tempElement.setAttribute('airplay', 'allow');
         _tempElement.setAttribute('x-webkit-airplay', 'allow');
         _tempElement.setAttribute('playsinline', 'true');
@@ -48,11 +53,11 @@ export default class CorePlayerManager implements IPlayerCore {
         _tempElement.setAttribute('x5-playsinline', 'true');
         _tempElement.setAttribute('x5-video-player-type', 'h5');
         _tempElement.setAttribute('x5-video-player-fullscreen', 'true');
-        //classes
-        _tempElement.classList.add('vkd-player');
-        _tempElement.classList.add('vkd-fill');
-        if (classList && classList.length) {
-            classList.forEach((item: string) => {
+        _tempElement.setAttribute('width', videoConfig.playerWidth || "100%");
+        _tempElement.setAttribute('height', videoConfig.playerHeight || "100%");
+        //custom style list
+        if (videoConfig.classList && videoConfig.classList.length) {
+            videoConfig.classList.forEach((item: string) => {
                 _tempElement.classList.add(item);
             })
         }
@@ -69,12 +74,17 @@ export default class CorePlayerManager implements IPlayerCore {
             return;
         }
 
-        let _videoElement: HTMLVideoElement = this.createVideoElement(config.id, config.classList);
-        config.container.appendChild(_videoElement);
+        this._videoElement = this.createVideoElement({
+            id: config.id,
+            classList: config.classList,
+            playerHeight: config.playerHeight,
+            playerWidth: config.playerWidth
+        });
+        config.container.appendChild(this._videoElement);
         RuntimeLog.getInstance().log('video element appended');
 
         try {
-            this.initVkdPlayerCore(_videoElement, config);
+            this.initVkdPlayerCore(this._videoElement, config);
             this.initEventsHandler();
         } catch (e) {
             let errorObj: IObject = {
@@ -99,9 +109,6 @@ export default class CorePlayerManager implements IPlayerCore {
                 data: null,
             });
         }
-
-        //初始化调度器
-        Scheduler.getInstance();
 
         //初始化碎片MP4 worker
         FMP4Worker.getInstance();
@@ -180,20 +187,17 @@ export default class CorePlayerManager implements IPlayerCore {
         return this[funcName].apply(this, params);
     }
 
-    get aspectRatio(): string {
-        return this._playerCore.aspectRatio;
+    get playerId(): string {
+        return this._player_id;
     }
 
-    set aspectRatio(value: string) {
-        this._playerCore.aspectRatio = value;
+    set playerId(value: string) {
+        this._player_id = value;
+        this._videoElement.setAttribute('id', this._player_id);
     }
 
     get buffered(): any {
         return this._playerCore.buffered;
-    }
-
-    get bufferedEnd(): number {
-        return this._playerCore.bufferedEnd;
     }
 
     get bufferedPercent(): number {
@@ -224,14 +228,6 @@ export default class CorePlayerManager implements IPlayerCore {
         this._playerCore.duration = value;
     }
 
-    get height(): number {
-        return this._playerCore.height;
-    }
-
-    set height(value: number) {
-        this._playerCore.height = value;
-    }
-
     get muted(): boolean {
         return this._playerCore.muted;
     }
@@ -248,24 +244,12 @@ export default class CorePlayerManager implements IPlayerCore {
         this._playerCore.poster = value;
     }
 
-    get videoPlaybackQuality(): any {
-        return this._playerCore.videoPlaybackQuality;
-    }
-
     get volume(): number {
         return this._playerCore.volume;
     }
 
     set volume(value: number) {
         this._playerCore.volume = value;
-    }
-
-    get width(): number {
-        return this._playerCore.width;
-    }
-
-    set width(value: number) {
-        this._playerCore.width = value;
     }
 
     get src(): any {
@@ -370,7 +354,6 @@ export default class CorePlayerManager implements IPlayerCore {
 
     dispose(): void {
         //移除所有事件, 注销worker
-        Scheduler.getInstance().dispose();
         FMP4Worker.getInstance().worker.terminate();
         this._playerCore.dispose();
     }

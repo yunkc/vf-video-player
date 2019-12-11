@@ -8,9 +8,7 @@ import { IObject } from '../../../interface/IGeneral';
 import { ErrorTypeList } from "../../../config/ErrorTypeList";
 import MediaDataTask from './MediaDataTask';
 import RuntimeLog from '../../../log/RuntimeLog';
-import Buffer from "../Buffer";
 import { playerConfig } from '../../../config/MediaPlayerConfig';
-import EventCenter from '../../../events/EventCenter';
 import Scheduler from '../../Scheduler';
 
 class VkdMP4Player extends VkdBasePlayer {
@@ -23,11 +21,22 @@ class VkdMP4Player extends VkdBasePlayer {
         super(element, options);
         if (!MSE.isSupported('video/mp4; codecs="avc1.64001E, mp4a.40.5"')) return;
         this.init();
-        Scheduler.getInstance().registerTask({
-            id: 'MSE_APPEND_TASK',
-            func: this.appendMediaBuffer,
-            delta: 150,
-        })
+        Scheduler.setInterval(220, this.appendMediaBuffer);
+
+        /**
+         * 测试
+         
+        let _count = 0;
+        let s1 = Scheduler.setInterval(1000, () => {
+            if(_count++ >= 5){
+                s1.pause();
+            }
+            console.log(1);
+        });
+        let s2 = Scheduler.setInterval(1000, () => {
+            console.log(2);
+        });
+        */
     }
 
     private errorHandler = (err: IObject) => {

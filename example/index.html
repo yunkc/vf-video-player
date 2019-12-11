@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" charset="utf-8">
+    <title>视频播放SDK在线案例</title>
+    <link rel="stylesheet" href="./style/VKDVideoSDK.css">
+    <link rel="stylesheet" href='./style/bootstrap.css'>
+    <link rel="stylesheet" href='./style/myStyle.css'>
+</head>
+
+<body>
+    <div class="container-fluid no-margin no-padding">
+        <!-- 第一行内容 -->
+        <div class="row no-margin">
+            <!-- 第一列 -->
+            <div id="myMediaInfoPanel" class="col-sm-6  half-height-container  no-padding">
+                <table class="table table-condensed my-table">
+                    <caption>媒体信息:</caption>
+                    <tr>
+                        <th>视频信息</th>
+                        <th>解析值</th>
+                    </tr>
+                </table>
+            </div>
+            <!-- 第二列 -->
+            <div class="row no-margin">
+                <div id="controlPanel" class="col-sm-12  half-height-container no-padding">
+                    <!-- 第1行 -->
+                    <div class="row no-margin">
+                        <div class="col-sm-12 half4-height-container">
+                            <div class="btn-group btn-group-justified" role="group" aria-label="...">
+                                <div class="btn-group">
+                                    <button id="playBtn" type="button" class="btn btn-primary">
+                                        <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="btn-group">
+                                    <button id="pauseBtn" type="button" class="btn btn-primary">
+                                        <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="btn-group">
+                                    <button id="replayBtn" type="button" class="btn btn-primary">
+                                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="btn-group">
+                                    <button id="fullScreenBtn" type="button" class="btn btn-primary">
+                                        <span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="btn-group">
+                                    <button id="definitionMenuBtn" type="button" class="btn btn-primary dropdown-toggle"
+                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">分辨率<span
+                                            class="caret"></span>
+                                    </button>
+                                    <ul id="definitionMenu" class="dropdown-menu">
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 第2行 -->
+                    <div class="row no-margin">
+                        <div class="col-sm-12">
+                            <div class="half4-height-container" style="width:20%;float: left;">
+                                <span class="label" style="font-size:15px;color: #c6c6c6">进度条: </span>
+                            </div>
+                            <div class="half4-height-container" style="width:80%;float: left;">
+                                <div id="progressBarContainer" class="progress">
+                                    <div id="progressBar" class="progress-bar progress-bar-success" role="progressbar"
+                                        aria-valuemin="0" aria-valuemax="100">
+                                        <span class="sr-only">45% Complete</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 第3行 -->
+                    <div class="row no-margin">
+                        <div class="col-sm-12 half4-height-container">
+                            <div class="input-group">
+                                <input id="changeSrcInput" type="text" class="form-control" placeholder="输入视频链接地址...">
+                                <span class="input-group-btn">
+                                    <button id="changeSrcBtn" class="btn  btn-primary" type="button">
+                                        立即切换视频地址
+                                        <span class="glyphicon glyphicon-link" aria-hidden="true"></span>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 第4行 -->
+                    <div class="row no-margin">
+                        <div class="col-sm-6 half4-height-container">
+                            <div class="input-group">
+                                <input id="changePlayRateInput" type="text" class="form-control" placeholder="速度...">
+                                <span class="input-group-btn">
+                                    <button id="changePlayRateBtn" class="btn  btn-primary" type="button">
+                                        修改播放速度
+                                        <span class="glyphicon glyphicon-scale" aria-hidden="true"></span>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 half4-height-container">
+                            <div class="row no-margin">
+                                <div class="col-sm-6 half4-height-container">
+                                    <div class="input-group">
+                                        <div id="mutedCheck" class="checkbox" style="float: left;">
+                                            <label style="color:#fff">
+                                                <input id="mutedCheckInput" type="checkbox">静音</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 half4-height-container">
+                                    <div id="loopCheck" class="checkbox" style="float: left;">
+                                        <label style="color:#fff">
+                                            <input id="loopCheckInput" type="checkbox">循环</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第二行内容 -->
+        <div class="row no-margin">
+            <!-- 第一列 -->
+            <div class="col-sm-6 container-height-2d3 no-padding" style="background-color:#5cb85c">
+                <div id="myVideoContainer">
+                </div>
+            </div>
+
+
+            <!-- 第二列 -->
+            <div class="row no-margin">
+                <div id="networkSpeedChartContainer" class="col-sm-6 half1d3-height-container no-padding">
+                </div>
+                <div id="frameSpeedChartContainer" class="col-sm-6 half1d3-height-container no-padding">
+                </div>
+                <div id="timeupdateChartContainer" class="col-sm-6 half1d3-height-container no-padding">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</html><script type="text/javascript" src="lib.min.js"></script>

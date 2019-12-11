@@ -4962,7 +4962,6 @@ var VkdMP4Player_1 = __webpack_require__(/*! ./vkd/mp4/VkdMP4Player */ "./src/co
 var VkdHLSPlayer_1 = __webpack_require__(/*! ./vkd/hls/VkdHLSPlayer */ "./src/core/vkd/hls/VkdHLSPlayer.ts");
 var FMP4Worker_1 = __webpack_require__(/*! ./vkd/FMP4Worker */ "./src/core/vkd/FMP4Worker.ts");
 var MediaPlayerConfig_1 = __webpack_require__(/*! ../config/MediaPlayerConfig */ "./src/config/MediaPlayerConfig.ts");
-var Scheduler_1 = __webpack_require__(/*! ./Scheduler */ "./src/core/Scheduler.ts");
 /**
  * Manager配置项接口
  */
@@ -4997,15 +4996,18 @@ var CorePlayerManager = /** @class */ (function () {
         RuntimeLog_1.default.getInstance().log('player core manager is loaded');
     }
     /**
-     * 创建视频渲染载体
-     * @param {string} id
-     * @param {string[]} classList
-     * @returns {HTMLVideoElement}
+     * 创建video标签
+     * @param {IObject} config
      */
-    CorePlayerManager.prototype.createVideoElement = function (id, classList) {
+    CorePlayerManager.prototype.createVideoElement = function (videoConfig) {
         var _tempElement = document.createElement('video');
-        //attributes
-        _tempElement.setAttribute('id', id);
+        //style
+        _tempElement.style.backgroundColor = 'black';
+        _tempElement.style.padding = '0px';
+        _tempElement.style.outline = 'none';
+        //properties
+        this._player_id = videoConfig.id || NormalUtils_1.default.generateUUID();
+        _tempElement.setAttribute('id', this._player_id);
         _tempElement.setAttribute('airplay', 'allow');
         _tempElement.setAttribute('x-webkit-airplay', 'allow');
         _tempElement.setAttribute('playsinline', 'true');
@@ -5013,11 +5015,11 @@ var CorePlayerManager = /** @class */ (function () {
         _tempElement.setAttribute('x5-playsinline', 'true');
         _tempElement.setAttribute('x5-video-player-type', 'h5');
         _tempElement.setAttribute('x5-video-player-fullscreen', 'true');
-        //classes
-        _tempElement.classList.add('vkd-player');
-        _tempElement.classList.add('vkd-fill');
-        if (classList && classList.length) {
-            classList.forEach(function (item) {
+        _tempElement.setAttribute('width', videoConfig.playerWidth || "100%");
+        _tempElement.setAttribute('height', videoConfig.playerHeight || "100%");
+        //custom style list
+        if (videoConfig.classList && videoConfig.classList.length) {
+            videoConfig.classList.forEach(function (item) {
                 _tempElement.classList.add(item);
             });
         }
@@ -5032,11 +5034,16 @@ var CorePlayerManager = /** @class */ (function () {
             RuntimeLog_1.default.getInstance().error('container element is must-pass param!');
             return;
         }
-        var _videoElement = this.createVideoElement(config.id, config.classList);
-        config.container.appendChild(_videoElement);
+        this._videoElement = this.createVideoElement({
+            id: config.id,
+            classList: config.classList,
+            playerHeight: config.playerHeight,
+            playerWidth: config.playerWidth
+        });
+        config.container.appendChild(this._videoElement);
         RuntimeLog_1.default.getInstance().log('video element appended');
         try {
-            this.initVkdPlayerCore(_videoElement, config);
+            this.initVkdPlayerCore(this._videoElement, config);
             this.initEventsHandler();
         }
         catch (e) {
@@ -5061,8 +5068,6 @@ var CorePlayerManager = /** @class */ (function () {
                 data: null,
             });
         }
-        //初始化调度器
-        Scheduler_1.default.getInstance();
         //初始化碎片MP4 worker
         FMP4Worker_1.default.getInstance();
         //设置player配置项
@@ -5108,12 +5113,13 @@ var CorePlayerManager = /** @class */ (function () {
         }
         return this[funcName].apply(this, params);
     };
-    Object.defineProperty(CorePlayerManager.prototype, "aspectRatio", {
+    Object.defineProperty(CorePlayerManager.prototype, "playerId", {
         get: function () {
-            return this._playerCore.aspectRatio;
+            return this._player_id;
         },
         set: function (value) {
-            this._playerCore.aspectRatio = value;
+            this._player_id = value;
+            this._videoElement.setAttribute('id', this._player_id);
         },
         enumerable: true,
         configurable: true
@@ -5121,13 +5127,6 @@ var CorePlayerManager = /** @class */ (function () {
     Object.defineProperty(CorePlayerManager.prototype, "buffered", {
         get: function () {
             return this._playerCore.buffered;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(CorePlayerManager.prototype, "bufferedEnd", {
-        get: function () {
-            return this._playerCore.bufferedEnd;
         },
         enumerable: true,
         configurable: true
@@ -5173,16 +5172,6 @@ var CorePlayerManager = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(CorePlayerManager.prototype, "height", {
-        get: function () {
-            return this._playerCore.height;
-        },
-        set: function (value) {
-            this._playerCore.height = value;
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(CorePlayerManager.prototype, "muted", {
         get: function () {
             return this._playerCore.muted;
@@ -5203,29 +5192,12 @@ var CorePlayerManager = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(CorePlayerManager.prototype, "videoPlaybackQuality", {
-        get: function () {
-            return this._playerCore.videoPlaybackQuality;
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(CorePlayerManager.prototype, "volume", {
         get: function () {
             return this._playerCore.volume;
         },
         set: function (value) {
             this._playerCore.volume = value;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(CorePlayerManager.prototype, "width", {
-        get: function () {
-            return this._playerCore.width;
-        },
-        set: function (value) {
-            this._playerCore.width = value;
         },
         enumerable: true,
         configurable: true
@@ -5343,7 +5315,6 @@ var CorePlayerManager = /** @class */ (function () {
     };
     CorePlayerManager.prototype.dispose = function () {
         //移除所有事件, 注销worker
-        Scheduler_1.default.getInstance().dispose();
         FMP4Worker_1.default.getInstance().worker.terminate();
         this._playerCore.dispose();
     };
@@ -5421,83 +5392,333 @@ var PrivateClass = /** @class */ (function () {
 
 "use strict";
 
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
- * 全局时间调度器
+ * Schedule anything
+ *
+ * @author 8088
  */
-var RuntimeLog_1 = __webpack_require__(/*! ../log/RuntimeLog */ "./src/log/RuntimeLog.ts");
-var _instance;
-var Scheduler = /** @class */ (function () {
-    function Scheduler(sign) {
-        var _this = this;
-        this._taskArr = [];
-        this._reqId = -1;
+var EventEmitter = __webpack_require__(/*! eventemitter3 */ "./node_modules/eventemitter3/index.js");
+var Ticker_1 = __webpack_require__(/*! ./Ticker */ "./src/core/Ticker.ts");
+var EventLevel_1 = __webpack_require__(/*! ../events/EventLevel */ "./src/events/EventLevel.ts");
+var EventNames_1 = __webpack_require__(/*! ../events/EventNames */ "./src/events/EventNames.ts");
+var Scheduler = /** @class */ (function (_super) {
+    __extends(Scheduler, _super);
+    function Scheduler(_timeout, _interval) {
+        if (_timeout === void 0) { _timeout = Infinity; }
+        if (_interval === void 0) { _interval = 0; }
+        var _this = _super.call(this) || this;
+        _this.lastTick = -1;
+        _this.elapsedTimeAtPause = 0;
+        _this.lastVisited = -1;
+        _this.interval = 0;
+        _this.timeout = Infinity;
+        _this._lastExecuted = 0;
+        _this._id = Math.random();
+        _this.TIMEOUT = 1000;
+        _this.endHandler = _this.noop;
+        _this.tickHandler = _this.noop;
+        _this.timeout = _timeout;
+        _this.interval = _interval;
+        _this.restart();
+        return _this;
+    }
+    Scheduler.prototype.noop = function (evt) {
+        if (evt === void 0) { evt = null; }
+        return;
+    };
+    Scheduler.prototype.restart = function () {
+        this.elapsedTimeAtPause = 0;
+        this.start = Scheduler.clock();
+        this._lastExecuted = this.start;
+        this._running = true;
+        Scheduler.ticker.addCallback(this.run, this);
+    };
+    Scheduler.prototype.stop = function () {
+        this.elapsedTimeAtPause = 0;
+        this._running = false;
+        Scheduler.ticker.removeCallback(this.run, this);
+    };
+    Scheduler.prototype.pause = function () {
+        if (this._running) {
+            this.stop();
+            this.elapsedTimeAtPause = Scheduler.clock() - this.start;
+        }
+    };
+    Scheduler.prototype.resume = function () {
+        var _t;
+        if (!this._running) {
+            _t = this.elapsedTimeAtPause;
+            this.restart();
+            this.start = this.start - _t;
+        }
+    };
+    Scheduler.prototype.seek = function (time) {
+        this.elapsedTimeAtPause = time;
+    };
+    Scheduler.prototype.isTickable = function (num) {
+        return num - this.lastTick >= this.interval;
+    };
+    Object.defineProperty(Scheduler.prototype, "id", {
+        get: function () {
+            return this._id;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Scheduler.setInterval = function (time, listener) {
+        var scheduler = new Scheduler(Infinity, time);
+        scheduler.addListener(EventNames_1.SchedulerEvents.TICK, listener);
+        return scheduler;
+    };
+    Scheduler.setTimeout = function (time, listener) {
+        var scheduler = new Scheduler(time, Infinity);
+        scheduler.addListener(EventNames_1.SchedulerEvents.END, listener, scheduler);
+        return scheduler;
+    };
+    // Internals
+    //
+    Scheduler.prototype.run = function () {
+        var elapsed;
+        var t = Scheduler.clock();
+        var timeElapsed = t - this._lastExecuted;
+        this._lastExecuted = t;
+        if (timeElapsed >= this.TIMEOUT) {
+            return; //init Scheduler
+        }
+        if (this.lastVisited <= t) {
+            this.lastVisited = t;
+            elapsed = t - this.start;
+            if (this.isTickable(t)) {
+                this.lastTick = t;
+                var info = {
+                    code: EventNames_1.SchedulerEvents.TICK,
+                    level: EventLevel_1.EventLevel.STATUS,
+                    target: this,
+                    elapsed: elapsed
+                };
+                this.emit(EventNames_1.SchedulerEvents.TICK, info);
+            }
+            if (elapsed >= this.timeout) {
+                this.stop();
+                var info = {
+                    code: EventNames_1.SchedulerEvents.END,
+                    level: EventLevel_1.EventLevel.STATUS,
+                    target: this,
+                    elapsed: elapsed
+                };
+                this.emit(EventNames_1.SchedulerEvents.END, info);
+            }
+            //..
+        }
+        return false;
+    };
+    Scheduler.clock = Date.now;
+    Scheduler.ticker = Ticker_1.default.getInstance();
+    return Scheduler;
+}(EventEmitter));
+exports.default = Scheduler;
+
+
+/***/ }),
+
+/***/ "./src/core/Ticker.ts":
+/*!****************************!*\
+  !*** ./src/core/Ticker.ts ***!
+  \****************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * VF心脏
+ *
+ * @author 8088
+ */
+var Ticker = /** @class */ (function () {
+    function Ticker(lock) {
+        if (lock === void 0) { lock = null; }
+        this._startTime = 0;
+        this._lastTime = 0;
+        this._lastCount = 1000;
+        this._frameRate = 60;
+        this._frameTime = 15;
+        this._frameInterval = 1000;
+        this._paused = false;
+        this._requestId = 0;
+        this.MIN_FPS = 4;
+        this.MAX_FPS = 60;
         /**
-         * 更新
+         * @private
          */
-        this.update = function () {
-            _this._reqId = window.requestAnimationFrame(_this.update);
-            _this._taskArr.every(function (item) {
-                item.endTime = Date.now();
-                if (item.endTime - item.startTime >= item.delta) {
-                    item.func();
-                    item.startTime = item.endTime;
-                }
-            });
-        };
-        if (sign !== PrivateClass) {
-            RuntimeLog_1.default.getInstance().error('class Scheduler is singleton, do not use new operator!');
+        this._callbackList = [];
+        this._contextList = [];
+        this._id = Math.random();
+        if (lock !== ConstructorLock) {
+            throw new SyntaxError("禁止实例化 Ticker !");
+        }
+        this._startTime = Date.now();
+        this.start();
+    }
+    Ticker.getInstance = function () {
+        if (!Ticker.instance) {
+            Ticker.instance = new Ticker(ConstructorLock);
+        }
+        return Ticker.instance;
+    };
+    /**
+     * @private
+     * @param {(timestamp: number) => boolean} callback
+     * @param context
+     */
+    Ticker.prototype.addCallback = function (callback, context) {
+        var index = this.getIndex(callback, context);
+        if (index != -1) {
             return;
         }
-        this.update();
-    }
-    Scheduler.getInstance = function () {
-        if (!_instance) {
-            _instance = new Scheduler(PrivateClass);
+        this.concat();
+        this._callbackList.push(callback);
+        this._contextList.push(context);
+    };
+    /**
+     * @private
+     * @param {(timestamp: number) => boolean} callback
+     * @param context
+     */
+    Ticker.prototype.removeCallback = function (callback, context) {
+        var index = this.getIndex(callback, context);
+        if (index == -1) {
+            return;
         }
-        return _instance;
+        this.concat();
+        this._callbackList.splice(index, 1);
+        this._contextList.splice(index, 1);
     };
     /**
-     * 向调度器中注册定时任务
-     * @param instance
+     * @private
      */
-    Scheduler.prototype.registerTask = function (taskObj) {
-        taskObj.startTime = Date.now();
-        taskObj.endTime = Date.now();
-        this._taskArr.push(taskObj);
-    };
-    /**
-     * 通过id从调度器中删除定时任务
-     */
-    Scheduler.prototype.removeTaskById = function (id) {
+    Ticker.prototype.start = function () {
         var _this = this;
-        this._taskArr.every(function (item, idx) {
-            if (item.id === id) {
-                _this._taskArr.splice(idx, 1);
-                return false;
-            }
-            else {
-                return true;
-            }
-        });
+        var requestAnimationFrame = window["requestAnimationFrame"] ||
+            window["webkitRequestAnimationFrame"];
+        if (!requestAnimationFrame) {
+            requestAnimationFrame = function (callback) {
+                return window.setTimeout(callback, _this._frameTime);
+            };
+        }
+        var ticker = this;
+        ticker._paused = false;
+        ticker._requestId = requestAnimationFrame(onTick);
+        function onTick() {
+            ticker.update();
+            ticker._requestId = requestAnimationFrame(onTick);
+        }
     };
     /**
-     * 销毁
+     * @private
      */
-    Scheduler.prototype.dispose = function () {
-        if (this._reqId)
-            window.cancelAnimationFrame(this._reqId);
-        this._taskArr.length = 0;
-        _instance = null;
+    Ticker.prototype.pause = function () {
+        this._paused = true;
     };
-    return Scheduler;
+    /**
+     * @private
+     */
+    Ticker.prototype.resume = function () {
+        this._paused = false;
+    };
+    /**
+     * @private
+     */
+    Ticker.prototype.stop = function () {
+        var cancelAnimationFrame = window["cancelAnimationFrame"] ||
+            window["webkitCancelAnimationFrame"];
+        if (!cancelAnimationFrame) {
+            cancelAnimationFrame = function (id) {
+                return window.clearTimeout(id);
+            };
+        }
+        var ticker = this;
+        ticker._paused = true;
+        cancelAnimationFrame(ticker._requestId);
+    };
+    /**
+     * @private
+     */
+    Ticker.prototype.update = function () {
+        var callbackList = this._callbackList;
+        var contextList = this._contextList;
+        var escapedTime = Date.now() - this._startTime;
+        if (this._paused) {
+            this._lastTime = escapedTime;
+            return;
+        }
+        var deltaTime = escapedTime - this._lastTime;
+        if (deltaTime >= this._frameTime) {
+            this._lastTime = escapedTime;
+            var ln = callbackList.length;
+            for (var i = 0; i < ln; i++) {
+                var callback = callbackList[i];
+                var context = contextList[i];
+                if (callback) {
+                    callback.call(context, escapedTime);
+                }
+            }
+        }
+    };
+    Object.defineProperty(Ticker.prototype, "frameRate", {
+        get: function () {
+            return this._frameRate;
+        },
+        set: function (value) {
+            if (this._frameRate == value)
+                return;
+            this._frameRate = Math.max(this.MIN_FPS, Math.min(Math.round(value), this.MAX_FPS));
+            this._frameTime = 1000 / this._frameRate;
+            this._lastCount = this._frameInterval = Math.round(60000 / this._frameRate);
+        },
+        enumerable: true,
+        configurable: true
+    });
+    // Internals
+    //
+    Ticker.prototype.getIndex = function (callBack, context) {
+        var callBackList = this._callbackList;
+        var contextList = this._contextList;
+        for (var i = callBackList.length - 1; i >= 0; i--) {
+            if (callBackList[i] == callBack && contextList[i] == context) {
+                return i;
+            }
+        }
+        return -1;
+    };
+    Ticker.prototype.concat = function () {
+        this._callbackList = this._callbackList.concat();
+        this._contextList = this._contextList.concat();
+    };
+    return Ticker;
 }());
-exports.default = Scheduler;
-var PrivateClass = /** @class */ (function () {
-    function PrivateClass() {
+exports.default = Ticker;
+var ConstructorLock = /** @class */ (function () {
+    function ConstructorLock() {
     }
-    return PrivateClass;
+    return ConstructorLock;
 }());
+;
 
 
 /***/ }),
@@ -12922,12 +13143,22 @@ var VkdMP4Player = /** @class */ (function (_super) {
         if (!MSE_1.default.isSupported('video/mp4; codecs="avc1.64001E, mp4a.40.5"'))
             return _this;
         _this.init();
-        Scheduler_1.default.getInstance().registerTask({
-            id: 'MSE_APPEND_TASK',
-            func: _this.appendMediaBuffer,
-            delta: 150,
-        });
+        Scheduler_1.default.setInterval(220, _this.appendMediaBuffer);
         return _this;
+        /**
+         * 测试
+         
+        let _count = 0;
+        let s1 = Scheduler.setInterval(1000, () => {
+            if(_count++ >= 5){
+                s1.pause();
+            }
+            console.log(1);
+        });
+        let s2 = Scheduler.setInterval(1000, () => {
+            console.log(2);
+        });
+        */
     }
     /**
      * 初始化player
@@ -13284,9 +13515,6 @@ exports.EventLevel = {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/**
- * 向内Command事件类型
- */
 exports.CommandEvents = {
     //枚举value值必须和函数名对应
     DIMENSION: 'dimension',
@@ -13324,11 +13552,34 @@ exports.PropEvents = {
     SUPPORT_FULL_SCREEN: 'supportFullScreen',
     FULL_SCREEN_STATE: 'fullScreenState',
     RESOLUTIONS: 'resolutions',
-    CONTROLS: 'controls'
+    CONTROLS: 'controls',
+    PLAYER_ID: 'playerId'
 };
 exports.WorkerEvents = {
     WORKER_INIT_SEGMENT_FINISHED: 'workerInitSegmentFinished',
     WORKER_MEDIA_SEGMENT_FINISHED: 'workerMediaSegmentFinished',
+};
+exports.SchedulerEvents = {
+    /**
+    * 启动/开始
+    */
+    START: 'start',
+    /**
+     * 心跳
+     */
+    TICK: 'tick',
+    /**
+     * 更新
+     */
+    UPDATE: 'update',
+    /**
+     * 已改变
+     */
+    CHANGED: 'changed',
+    /**
+     * 结束
+     */
+    END: 'end',
 };
 
 
@@ -13369,6 +13620,7 @@ var EventCenter_1 = __webpack_require__(/*! ./events/EventCenter */ "./src/event
 var PlayerStateManager_1 = __webpack_require__(/*! ./core/PlayerStateManager */ "./src/core/PlayerStateManager.ts");
 var PlayerPluginManager_1 = __webpack_require__(/*! ./plugin/PlayerPluginManager */ "./src/plugin/PlayerPluginManager.ts");
 var MediaPlayerConfig_1 = __webpack_require__(/*! ./config/MediaPlayerConfig */ "./src/config/MediaPlayerConfig.ts");
+var Scheduler_1 = __webpack_require__(/*! ./core/Scheduler */ "./src/core/Scheduler.ts");
 var MediaPlayer = /** @class */ (function (_super) {
     __extends(MediaPlayer, _super);
     /* ------------------------ constructor ------------------------ */
@@ -13395,21 +13647,23 @@ var MediaPlayer = /** @class */ (function (_super) {
             EventBus_1.default.getInstance().dispose();
             _this.removeAllListeners();
         };
+        _this.initOutwardStatesEventsListener();
         _this.setShowLog(options.isShowLog);
         _this._options = options;
+        _this.init();
         return _this;
     }
-    Object.defineProperty(MediaPlayer.prototype, "aspectRatio", {
+    Object.defineProperty(MediaPlayer.prototype, "playerId", {
         /* ------------------------ property ------------------------ */
         /**
-         * player像素比
+         * player ID
          * @returns {string}
          */
         get: function () {
-            return this._globalAPI.getCorePropertyByName('aspectRatio');
+            return this._globalAPI.getCorePropertyByName('playerId');
         },
         set: function (value) {
-            this._globalAPI.setCorePropertyByName('aspectRatio', value);
+            this._globalAPI.setCorePropertyByName('playerId', value);
         },
         enumerable: true,
         configurable: true
@@ -13432,17 +13686,6 @@ var MediaPlayer = /** @class */ (function (_super) {
          */
         get: function () {
             return this._globalAPI.getCorePropertyByName('bufferedEnd');
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(MediaPlayer.prototype, "bufferedPercent", {
-        /**
-         * player已缓冲百分比（只读）
-         * @returns {number}
-         */
-        get: function () {
-            return this._globalAPI.getCorePropertyByName('bufferedPercent');
         },
         enumerable: true,
         configurable: true
@@ -13535,17 +13778,6 @@ var MediaPlayer = /** @class */ (function (_super) {
         },
         set: function (value) {
             this._globalAPI.setCorePropertyByName('poster', value);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(MediaPlayer.prototype, "videoPlaybackQuality", {
-        /**
-         * player质量（只读）
-         * @returns {number}
-         */
-        get: function () {
-            return this._globalAPI.getCorePropertyByName('videoPlaybackQuality');
         },
         enumerable: true,
         configurable: true
@@ -13740,6 +13972,30 @@ var MediaPlayer = /** @class */ (function (_super) {
         this.emit(type, params);
     };
     /**
+     * 设置延迟执行函数
+     * @param handler
+     * @param time
+     */
+    MediaPlayer.setTimeout = function (handler, time) {
+        return Scheduler_1.default.setTimeout(time, handler);
+    };
+    /**
+     * 设置持续执行函数
+     * @param handler
+     * @param time
+     */
+    MediaPlayer.setInterval = function (handler, time) {
+        return Scheduler_1.default.setInterval(time, handler);
+    };
+    /**
+     * 销毁timer实例
+     * @param timerInstance
+     */
+    MediaPlayer.removeTimer = function (timerInstance) {
+        timerInstance.stop();
+        timerInstance = null;
+    };
+    /**
      * 初始化 player SDK
      */
     MediaPlayer.prototype.init = function () {
@@ -13747,7 +14003,6 @@ var MediaPlayer = /** @class */ (function (_super) {
         RuntimeLog_1.default.getInstance().outputSdkInfo();
         // Player状态设置为未就绪
         PlayerStateManager_1.default.getInstance().updatePlayerState(StateTypeList_1.StateTypeList.NOT_READY);
-        this.initOutwardStatesEventsListener();
         // 初始化API模块
         var _GlobalAPIOpts = options;
         this._globalAPI = GlobalAPI_1.default.getInstance(_GlobalAPIOpts);
@@ -14057,40 +14312,7 @@ var PlayerPluginManager = /** @class */ (function () {
             throw new Error('plugin array is undefined! It\'s a must-pass param when initialization.');
         }
         this._plugins = pluginArr;
-        //media events
-        EventBus_1.default.getInstance().on('PlayerMediaEvent', function (e) {
-            // this.dispatchOutwardEvent('PlayerMediaEvent', e);
-            pluginArr.forEach(function (item) {
-                var funcName = "on" + e.code;
-                if (NormalUtils_1.default.typeOf(item[funcName]) === 'Function') {
-                    item[funcName](e);
-                }
-            });
-        });
-        //error events
-        EventBus_1.default.getInstance().on('PlayerError', function (e) {
-            pluginArr.forEach(function (item) {
-                if (NormalUtils_1.default.typeOf(item['onError']) === 'Function') {
-                    item['onError'].call(item, e);
-                }
-            });
-        });
-        //network events
-        EventBus_1.default.getInstance().on('PlayerDownloadSpeed', function (e) {
-            pluginArr.forEach(function (item) {
-                if (NormalUtils_1.default.typeOf(item['onNetSpeed']) === 'Function') {
-                    item['onNetSpeed'].call(item, e);
-                }
-            });
-        });
-        //media info
-        EventBus_1.default.getInstance().on('PlayerMediaInfoParsed', function (e) {
-            pluginArr.forEach(function (item) {
-                if (NormalUtils_1.default.typeOf(item['onMediaInfoParsed']) === 'Function') {
-                    item['onMediaInfoParsed'].call(item, e);
-                }
-            });
-        });
+        this.initEvents();
     }
     Object.defineProperty(PlayerPluginManager.prototype, "pluginList", {
         get: function () {
@@ -14099,6 +14321,46 @@ var PlayerPluginManager = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
+    /**
+     * 初始化事件钩子
+     */
+    PlayerPluginManager.prototype.initEvents = function () {
+        var _this = this;
+        //media events
+        EventBus_1.default.getInstance().on('PlayerMediaEvent', function (e) {
+            // this.dispatchOutwardEvent('PlayerMediaEvent', e);
+            _this._plugins.forEach(function (item) {
+                var funcName = "on" + e.code;
+                if (NormalUtils_1.default.typeOf(item[funcName]) === 'Function') {
+                    item[funcName](e);
+                }
+            });
+        });
+        //error events
+        EventBus_1.default.getInstance().on('PlayerError', function (e) {
+            _this._plugins.forEach(function (item) {
+                if (NormalUtils_1.default.typeOf(item['onError']) === 'Function') {
+                    item['onError'].call(item, e);
+                }
+            });
+        });
+        //network events
+        EventBus_1.default.getInstance().on('PlayerDownloadSpeed', function (e) {
+            _this._plugins.forEach(function (item) {
+                if (NormalUtils_1.default.typeOf(item['onNetSpeed']) === 'Function') {
+                    item['onNetSpeed'].call(item, e);
+                }
+            });
+        });
+        //media info
+        EventBus_1.default.getInstance().on('PlayerMediaInfoParsed', function (e) {
+            _this._plugins.forEach(function (item) {
+                if (NormalUtils_1.default.typeOf(item['onMediaInfoParsed']) === 'Function') {
+                    item['onMediaInfoParsed'].call(item, e);
+                }
+            });
+        });
+    };
     PlayerPluginManager.getInstance = function (pluginArr) {
         if (!_instance) {
             _instance = new PlayerPluginManager(PrivateClass, pluginArr);
@@ -14107,7 +14369,7 @@ var PlayerPluginManager = /** @class */ (function () {
     };
     /**
      * 注册插件
-     * @param pluginInstance
+     * @params pluginInstance | [pluginInstance1, pluginInstance2, ...]
      */
     PlayerPluginManager.prototype.registerPlugin = function (pluginInstance) {
         var _this = this;

@@ -17,13 +17,7 @@ import MSE from "./MSE";
 
 abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     [key: string]: any;
-
-    width: number;
-    height: number;
-    aspectRatio: string;
-    bufferedEnd: number;
-    bufferedPercent: number;
-
+    
     private _video: HTMLVideoElement;
     private _mainUrl: string;
     private _mainUrlMap: IObject = {

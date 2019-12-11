@@ -24,10 +24,17 @@ class PlayerPluginManager {
 
         this._plugins = pluginArr;
 
+        this.initEvents();
+    }
+
+    /**
+     * 初始化事件钩子
+     */
+    private initEvents() {
         //media events
         EventBus.getInstance().on('PlayerMediaEvent', (e: IObject) => {
             // this.dispatchOutwardEvent('PlayerMediaEvent', e);
-            pluginArr.forEach((item: IObject) => {
+            this._plugins.forEach((item: IObject) => {
                 let funcName = `on${e.code}`
                 if (NormalUtils.typeOf(item[funcName]) === 'Function') {
                     item[funcName](e);
@@ -37,7 +44,7 @@ class PlayerPluginManager {
 
         //error events
         EventBus.getInstance().on('PlayerError', (e: IObject) => {
-            pluginArr.forEach((item: IObject) => {
+            this._plugins.forEach((item: IObject) => {
                 if (NormalUtils.typeOf(item['onError']) === 'Function') {
                     item['onError'].call(item, e);
                 }
@@ -46,16 +53,16 @@ class PlayerPluginManager {
 
         //network events
         EventBus.getInstance().on('PlayerDownloadSpeed', (e: IObject) => {
-            pluginArr.forEach((item: IObject) => {
+            this._plugins.forEach((item: IObject) => {
                 if (NormalUtils.typeOf(item['onNetSpeed']) === 'Function') {
                     item['onNetSpeed'].call(item, e);
                 }
             });
         })
-        
+
         //media info
         EventBus.getInstance().on('PlayerMediaInfoParsed', (e: IObject) => {
-            pluginArr.forEach((item: IObject) => {
+            this._plugins.forEach((item: IObject) => {
                 if (NormalUtils.typeOf(item['onMediaInfoParsed']) === 'Function') {
                     item['onMediaInfoParsed'].call(item, e);
                 }
@@ -72,7 +79,7 @@ class PlayerPluginManager {
 
     /**
      * 注册插件
-     * @param pluginInstance 
+     * @params pluginInstance | [pluginInstance1, pluginInstance2, ...]
      */
     registerPlugin(pluginInstance: IObject | IObject[]) {
         if (!this._plugins) {

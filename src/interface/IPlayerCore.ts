@@ -2,20 +2,14 @@
  * API接口
  */
 export default interface IPlayerCore {
-    width: number;
-    height: number;
     volume: number;
     duration: number;
     currentTime: number;
-    videoPlaybackQuality: any;
     muted: boolean;
     currentWidth: number;
     currentHeight: number;
-    aspectRatio: string;
     poster: string;
     buffered: any;
-    bufferedEnd: number;
-    bufferedPercent: number;
     src: any;
     playbackRate: any;
     loop: any;

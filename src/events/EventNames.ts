@@ -1,8 +1,4 @@
 import { IObject } from '../interface/IGeneral';
-/**
- * 向内Command事件类型
- */
-
 export const CommandEvents: IObject = {
     //枚举value值必须和函数名对应
     DIMENSION: 'dimension',
@@ -41,10 +37,40 @@ export const PropEvents: IObject = {
     SUPPORT_FULL_SCREEN: 'supportFullScreen',
     FULL_SCREEN_STATE: 'fullScreenState',
     RESOLUTIONS: 'resolutions',
-    CONTROLS: 'controls'
+    CONTROLS: 'controls',
+    PLAYER_ID: 'playerId'
 };
 
 export const WorkerEvents: IObject = {
     WORKER_INIT_SEGMENT_FINISHED: 'workerInitSegmentFinished',
     WORKER_MEDIA_SEGMENT_FINISHED: 'workerMediaSegmentFinished',
+}
+
+export const SchedulerEvents: IObject = {
+    /**
+    * 启动/开始
+    */
+    START: 'start',
+
+    /**
+     * 心跳
+     */
+    TICK: 'tick',
+
+    /**
+     * 更新
+     */
+    UPDATE: 'update',
+
+    /**
+     * 已改变
+     */
+    CHANGED: 'changed',
+
+    /**
+     * 结束
+     */
+    END: 'end',
+
+    // ...
 }

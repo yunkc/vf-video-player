@@ -19,20 +19,20 @@ npm install vf-media-player --save
 ## 使用
 ```javascript
 //script标签直接引入
-<link rel="stylesheet" href="yourPath/VKDVideoSDK.css"/>
 <script src='yourPath/VFMediaPlayer.js'></script>
 
-//或者通过module方式, 同时记得引入css文件
-import 'vf-media-player/dist/VFMediaPlayer.css'
+//或者通过module方式
 import VFMediaPlayer from 'vf-media-player';
 
 ```
 
 ## 初始化
 ```javascript
-let myPlayer = new VFMediaPlayer(videoContainer, {
+let videoContainer = document.getElementById('YOUR_CONTAINER_ID');
+let myPlayer = new VFMediaPlayer({
+        container: videoContainer,
         id: YOUR_ID,
-        src: YOUR_URL,
+        src: YOUR_URL, //详情见options配置项说明
         definition: 'Auto',
         controls: false,
         autoplay: false,
@@ -45,7 +45,6 @@ let myPlayer = new VFMediaPlayer(videoContainer, {
 
 myPlayer.on('PlayerMediaEvent', MEDIA_EVENT_HANDLER);
 myPlayer.on('playerError', PLAYER_ERROR_HANDLER);
-myPlayer.init();
 ```
 
 ## 使用文档
@@ -61,7 +60,7 @@ myPlayer.init();
 ## TODO List
 | 功能            | 进度 |
 |-----------------|------|
-| MP4播放功能完善 | 0%   |
+| 提升MP4播放体验 | 0%   |
 | P2P加载器       | 0%   |
 | flv支持         | 0%   |
 | hls支持         | 0%   |

@@ -6,7 +6,7 @@ npm-debug.log
 .vscode/
 .DS_Store
 */**/.DS_Store/*
-example/
+example/video
 agile.yaml
 /index.html
 *.txt

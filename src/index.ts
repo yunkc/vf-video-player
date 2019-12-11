@@ -5,7 +5,6 @@ import * as EventEmitter from "eventemitter3";
 import GlobalAPI from "./api/GlobalAPI";
 import RuntimeLog from './log/RuntimeLog';
 import { IObject } from './interface/IGeneral';
-import { ErrorTypeList } from "./config/ErrorTypeList";
 import EventBus from "./events/EventBus";
 import { StateTypeList } from "./config/StateTypeList";
 import EventCenter from "./events/EventCenter";
@@ -13,23 +12,23 @@ import PlayerStateManager from "./core/PlayerStateManager";
 import PlayerPluginManager from './plugin/PlayerPluginManager';
 import { playerConfig } from './config/MediaPlayerConfig';
 import SensorUtils from "./utils/SensorUtils";
+import Scheduler from './core/Scheduler';
 
 export default class MediaPlayer extends EventEmitter {
     private _globalAPI: GlobalAPI;
-    private _element: HTMLElement;
     private _options: any;
 
     /* ------------------------ property ------------------------ */
     /**
-     * player像素比
+     * player ID
      * @returns {string}
      */
-    get aspectRatio(): string {
-        return this._globalAPI.getCorePropertyByName('aspectRatio');
+    get playerId(): string {
+        return this._globalAPI.getCorePropertyByName('playerId');
     }
 
-    set aspectRatio(value: string) {
-        this._globalAPI.setCorePropertyByName('aspectRatio', value);
+    set playerId(value: string) {
+        this._globalAPI.setCorePropertyByName('playerId', value);
     }
 
     /**
@@ -46,14 +45,6 @@ export default class MediaPlayer extends EventEmitter {
      */
     get bufferedEnd(): number {
         return this._globalAPI.getCorePropertyByName('bufferedEnd')
-    }
-
-    /**
-     * player已缓冲百分比（只读）
-     * @returns {number}
-     */
-    get bufferedPercent(): number {
-        return this._globalAPI.getCorePropertyByName('bufferedPercent')
     }
 
     /**
@@ -133,14 +124,6 @@ export default class MediaPlayer extends EventEmitter {
     }
 
     /**
-     * player质量（只读）
-     * @returns {number}
-     */
-    get videoPlaybackQuality(): number {
-        return this._globalAPI.getCorePropertyByName('videoPlaybackQuality');
-    }
-
-    /**
      * player声音
      * @returns {number}
      */
@@ -155,11 +138,11 @@ export default class MediaPlayer extends EventEmitter {
     /**
      * player控制栏
      */
-    get controls():boolean{
+    get controls(): boolean {
         return this._globalAPI.getCorePropertyByName('controls')
     }
 
-    set controls(value:boolean){
+    set controls(value: boolean) {
         this._globalAPI.setCorePropertyByName('controls', value);
     }
 
@@ -255,7 +238,7 @@ export default class MediaPlayer extends EventEmitter {
     /**
      * 获取分辨率
      */
-    get resolutions(){
+    get resolutions() {
         return this._globalAPI.getCorePropertyByName('resolutions');
     }
 
@@ -270,11 +253,11 @@ export default class MediaPlayer extends EventEmitter {
     /**
      * 获取Player当前配置
      */
-    get mediaPlayerConfig():IObject{
+    get mediaPlayerConfig(): IObject {
         return playerConfig;
     }
 
-    
+
 
     /* ------------------------ constructor ------------------------ */
     /**
@@ -284,8 +267,10 @@ export default class MediaPlayer extends EventEmitter {
      */
     constructor(options: any) {
         super();
+        this.initOutwardStatesEventsListener();
         this.setShowLog(options.isShowLog);
         this._options = options;
+        this.init();
     }
 
     /* ------------------------ function --------------------------- */
@@ -338,6 +323,33 @@ export default class MediaPlayer extends EventEmitter {
     };
 
     /**
+     * 设置延迟执行函数
+     * @param handler 
+     * @param time 
+     */
+    public static setTimeout(handler: EventEmitter.ListenerFn, time: number) {
+        return Scheduler.setTimeout(time, handler);
+    }
+
+    /**
+     * 设置持续执行函数
+     * @param handler 
+     * @param time 
+     */
+    public static setInterval(handler: EventEmitter.ListenerFn, time: number) {
+        return Scheduler.setInterval(time, handler);
+    }
+
+    /**
+     * 销毁timer实例
+     * @param timerInstance 
+     */
+    public static removeTimer(timerInstance: Scheduler) {
+        timerInstance.stop();
+        timerInstance = null;
+    }
+
+    /**
      * 初始化 player SDK
      */
     public init(): void {
@@ -346,8 +358,6 @@ export default class MediaPlayer extends EventEmitter {
 
         // Player状态设置为未就绪
         PlayerStateManager.getInstance().updatePlayerState(StateTypeList.NOT_READY);
-
-        this.initOutwardStatesEventsListener();
 
         // 初始化API模块
         let _GlobalAPIOpts: IObject = options;
