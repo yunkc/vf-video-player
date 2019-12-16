@@ -14,10 +14,11 @@ import PlayerStateManager from "../PlayerStateManager";
 import RuntimeLog from "../../log/RuntimeLog";
 import Buffer from "./Buffer";
 import MSE from "./MSE";
+import DoublyList from './DoublyList';
 
 abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     [key: string]: any;
-    
+
     private _video: HTMLVideoElement;
     private _mainUrl: string;
     private _mainUrlMap: IObject = {
@@ -28,9 +29,9 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
         '1080P': null,
         '4K': null,
     };
-    private _usefulUrlList: IObject[] = [];
+    private _usefulUrlList: DoublyList = new DoublyList();
     protected _options: IObject;
-    protected _switchDefinitionTimer: number = null;
+    protected _switchResolutionTimer: number = null;
     protected _switchingDefinition: boolean = false;
     protected _mediaSegmentsQueue: Uint8Array[] = [];
     protected _taskQueue: IObject[] = [];
@@ -171,10 +172,6 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
         this._mainUrlMap = value;
     }
 
-    get usefulUrlList(): IObject[] {
-        return this._usefulUrlList.concat();
-    }
-
     constructor(videoElement: HTMLVideoElement, options: IObject) {
         super();
         this._video = videoElement;
@@ -211,15 +208,15 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
                 '1080P': null,
                 '4K': null,
             };
-            this._usefulUrlList = [];
+            this._usefulUrlList = null;
             playerConfig.currentResolution = null;
-            this.mainUrl = this._options.src;
+            this._mainUrl = this._options.src;
         },
 
         'Object': () => {
             playerConfig.canSwitchResolution = true;
-            this.mainUrlMap = { ...this._options.src };
-            this.mainUrl = this.createCanSwitchMainUrl();
+            this._mainUrlMap = { ...this._mainUrlMap, ...this._options.src };
+            this._mainUrl = this.createCanSwitchMainUrl();
         }
     }
 
@@ -229,22 +226,18 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     private createCanSwitchMainUrl() {
         let mainUrl = null;
         let _keys = Object.keys(this.mainUrlMap);
-        let _usefulUrl: IObject[] = [];
         _keys.forEach((item: string) => {
-            if (this.mainUrlMap[item]) {
-                _usefulUrl.push({
-                    url: this.mainUrlMap[item],
-                    key: item
-                });
-            }
+            this._usefulUrlList.append({
+                url: this.mainUrlMap[item],
+                key: item
+            });
         })
-        if (!_usefulUrl.length) {
+        if (!this._usefulUrlList.length) {
             this.errorHandler({
-                message: `no userful url, core init failed!`
+                message: `no userful url, useful url init failed!`
             })
             return;
         }
-        this._usefulUrlList = _usefulUrl;
 
         if (playerConfig.resolution === 'Auto') {
             // Auto分辨率下优先480P, 否则选择第一个可用src作为baseUrl
@@ -252,9 +245,19 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
                 mainUrl = this.mainUrlMap['480P'];
                 playerConfig.currentResolution = '480P';
             } else {
-                let _lastUrlObj = this._usefulUrlList[0];
-                playerConfig.currentResolution = _lastUrlObj.key;
-                mainUrl = _lastUrlObj.url;
+                let _firstVailObj: IObject = this._usefulUrlList.getFirstVailNode(0, 'right', (data: IObject) => {
+                    return data.url !== null;
+                }).data;
+
+                if (_firstVailObj) {
+                    playerConfig.currentResolution = _firstVailObj.key;
+                    mainUrl = _firstVailObj.url;
+                } else {
+                    this.errorHandler({
+                        message: `no userful url value, main url init failed!`
+                    })
+                    return;
+                }
             }
         } else {
             playerConfig.currentResolution = playerConfig.resolution;
@@ -401,48 +404,33 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     /**
      * 响应网络环境变化事件
      */
-    protected onNetworkSpeedChange = (e: IObject) => {
+    protected onNetworkStateChange = (e: IObject) => {
         if (!playerConfig.canSwitchResolution) return;
-
-        let targetDefinition = e.networkState
-
-        if (playerConfig.currentDefinition === targetDefinition) return;
-
-        if (this._switchDefinitionTimer) {
-            clearTimeout(this._switchDefinitionTimer);
-            this._switchDefinitionTimer = undefined;
+        let targetResolution: string = null;
+        if (this.mainUrlMap[e.networkState]) {
+            targetResolution = e.networkState;
+        } else {
+            let _keys = Object.keys(this.mainUrlMap);
+            let _idx = _keys.indexOf(e.networkState);
+            let _targetNode: IObject = this._usefulUrlList.getFirstVailNode(_idx, 'left', (data: IObject) => {
+                return data.url !== null;
+            });
+            if (!_targetNode) return;
+            targetResolution = _targetNode.data.key;
         }
 
-        /*  let urlNotExist = this.usefulUrlList.every((item: IObject) => {
-             if (item.key === targetDefinition) {
-                 return false;
-             } else {
-                 return true;
-             }
-         });
- 
-         //如果target指定分辨率不存在, 则进一步判断
-         if (urlNotExist) {
-             let _mainUrlMapKeys = Object.keys(this._mainUrlMap);
-             let _start = _mainUrlMapKeys.indexOf(this._usefulUrlList[0].key);
-             let _end = _mainUrlMapKeys.indexOf(this._usefulUrlList[this._usefulUrlList.length - 1].key);
-             let _current = _mainUrlMapKeys.indexOf(targetDefinition);
-             if (_current < _start) {
-                 targetDefinition = this._usefulUrlList[0].key;
-             } else if (_current > _end) {
-                 targetDefinition = this._usefulUrlList[this._usefulUrlList.length - 1].key;
-             } else {
-                 //TODO: 目前直接取消切流, 后期需要修改为根据当前分辨率和可用分辨率之间的关系来进行抉择
-                 targetDefinition = null
-             }
-         } */
+        if (this._switchResolutionTimer) {
+            clearTimeout(this._switchResolutionTimer);
+        }
 
-        this._switchDefinitionTimer = window.setTimeout(() => {
-            playerConfig.currentDefinition = targetDefinition;
-            this.switchResolution(playerConfig.currentDefinition);
+        if (playerConfig.currentResolution === targetResolution) return;
+
+        this._switchResolutionTimer = window.setTimeout(() => {
+            playerConfig.currentResolution = targetResolution;
+            this.switchResolution(playerConfig.currentResolution);
         }, playerConfig.networkSpeedChangeReflectTime);
 
-        RuntimeLog.getInstance().log(`(mp4) netwrok speed change event fired, config definition: ${playerConfig.resolution}, current defunition: ${playerConfig.currentDefinition}, changed definition: ${e.networkState}`);
+        RuntimeLog.getInstance().log(`(mp4) netwrok speed change event fired, config resolution: ${playerConfig.resolution}, current resolution: ${playerConfig.currentResolution}, target resolution: ${e.networkState}`);
     }
 
     /**
@@ -496,31 +484,8 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
 
     /**
      * 改变分辨率
-     * @param resolution 
      */
-    public changeResolution(resolution: string) {
-        if (!playerConfig.canSwitchResolution) {
-            RuntimeLog.getInstance().warning(`(player) cannot switch definition when only have one src!`);
-            return;
-        }
-
-        if (this._switchDefinitionTimer) {
-            clearTimeout(this._switchDefinitionTimer);
-            this._switchDefinitionTimer = undefined;
-        }
-
-        if (playerConfig.resolution !== resolution) {
-            playerConfig.resolution = resolution;
-            /**
-             * 如果 其他分辨率 => Auto 则不立即切换, 后续切换逻辑网速监控来完成
-             * 否则 Auto => 其他分辨率 则立刻切换
-             */
-            if (resolution !== 'Auto') {
-                playerConfig.currentResolution = resolution;
-                this.switchResolution(resolution);
-            }
-        }
-    }
+    abstract changeResolution(resolution: string): void;
 
     /**
      * 销毁BasePlayer

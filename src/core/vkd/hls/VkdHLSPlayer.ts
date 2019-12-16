@@ -6,6 +6,9 @@ import MSE from '../MSE';
  * hls播放器核心
  */
 class VkdHLSPlayer extends VkdBasePlayer {
+    changeResolution(resolution: string): void {
+        throw new Error("Method not implemented.");
+    }
     private _hls: HLS = null;
     private _videoElement: HTMLVideoElement = null;
 

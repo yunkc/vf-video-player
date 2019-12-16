@@ -6,6 +6,7 @@ import HTTPLoader from '../HTTPLoader';
 import { playerConfig } from '../../../config/MediaPlayerConfig';
 import RuntimeLog from '../../../log/RuntimeLog';
 import EventCenter from '../../../events/EventCenter';
+import NormalUtils from '../../../utils/NormalUtils';
 
 /**
  * 视频媒体内容下载管理类
@@ -17,12 +18,14 @@ const LOADED: number = 2;
 //网速区域范围
 const netStatesMap: IObject = {
     '240P': [0, 0.1],
-    '360P': [0.1, 0.15],
-    '480P': [0.15, 0.4],
-    '720P': [0.4, 0.6],
-    '1080P': [0.6, 2],
-    '4K': [2, 5]
+    '360P': [0.1, 0.4],
+    '480P': [0.4, 1],
+    '720P': [1, 2],
+    '1080P': [2, 4],
+    '4K': [4, 8]
 }
+//下载切片大小
+const SLICE_SIZE = 200000;
 class MediaDataTask extends EventEmitter {
     private _url: string = '';
     private _keepLoader: HTTPLoader = null;
@@ -129,6 +132,7 @@ class MediaDataTask extends EventEmitter {
             return;
         };
 
+        /* 
         this._keepLoader = new HTTPLoader({
             url: this._url,
             fileType: 'mp4'
@@ -154,7 +158,60 @@ class MediaDataTask extends EventEmitter {
             this.createNextKeepLoader();
         }).catch((e: any) => {
             this.dispatchError(e);
-        })
+        }) */
+
+
+        _currentTask.state = LOADING;
+        let _taskStart = _currentTask.start + this._mdatStart;
+        let _taskEnd = _currentTask.end ? _currentTask.end + this._mdatStart : null;
+        let _tempEnd = _taskStart - 1, _tempBuffer = new Uint8Array(0);
+        let eleLoad = () => {
+            this._keepLoader = new HTTPLoader({
+                url: this._url,
+                fileType: 'mp4'
+            });
+            this._loadStartTime = Date.now();
+            if (_taskEnd === null) {
+                this._keepLoader.start(_taskStart, null).then((res: XMLHttpRequest) => {
+                    _currentTask.buffer = res.response;
+                    _currentTask.state = LOADED
+                    this._keepLoadedIndex += 1;
+                    this.emit('load', {
+                        task: _currentTask
+                    });
+                    //发送currentTask后将当前任务置空防止其占用内存
+                    _currentTask.buffer = undefined;
+                    _currentTask.state = NOT_LOAD;
+                })
+            } else {
+                let _tempStart = _tempEnd + 1;
+                _tempEnd = Math.min(_tempStart + SLICE_SIZE, _taskEnd);
+                this._keepLoader.start(_tempStart, _tempEnd).then((res: XMLHttpRequest) => {
+                    _tempBuffer = NormalUtils.concatUint8Array(_tempBuffer, new Uint8Array(res.response));
+                    let _contentSize = +res.getResponseHeader('Content-Length') / 1048576; //B -> MB
+                    this.checkNetworkState(_contentSize);
+
+                    if (_tempEnd === _taskEnd) {
+                        _currentTask.buffer = _tempBuffer.buffer; //TODO:拼接最后buffer
+                        _currentTask.state = LOADED
+                        this._keepLoadedIndex += 1;
+                        this.emit('load', {
+                            task: _currentTask
+                        });
+                        //发送currentTask后将当前任务置空防止其占用内存
+                        _currentTask.buffer = undefined;
+                        _tempBuffer = undefined;
+                        _currentTask.state = NOT_LOAD;
+                        this._keepLoader = null;
+                        this.createNextKeepLoader();
+                    } else {
+                        eleLoad();
+                    }
+                })
+            }
+
+        }
+        eleLoad();
     }
 
     /**
@@ -163,8 +220,6 @@ class MediaDataTask extends EventEmitter {
     private checkNetworkState(contentSize: number) {
         this._loadEndTime = Date.now();
         let _networkSpeed: number = (contentSize * 1000) / (this._loadEndTime - this._loadStartTime); //ms -> s
-
-
         let _keys: string[] = Object.keys(netStatesMap);
         let _tempNetState: string = null;
         _keys.every((key: string) => {
@@ -174,9 +229,9 @@ class MediaDataTask extends EventEmitter {
                 return false;
             } else return true;
         })
-        if (!_tempNetState) _tempNetState = '4K';
+        if (!_tempNetState) return;
 
-        RuntimeLog.getInstance().log(`%c >> net speed: ${_networkSpeed} MB/s, net state: ${_tempNetState} <<`, 'color: #858701;background: #061a87');
+        // RuntimeLog.getInstance().log(`%c >> net speed: ${_networkSpeed} MB/s, net state: ${_tempNetState} <<`, 'color: #858701;background: #061a87');
 
         //发送网速事件
         EventCenter.getInstance().dispatchOutwardEvent('PlayerDownloadSpeed', {
@@ -184,10 +239,19 @@ class MediaDataTask extends EventEmitter {
             netState: _tempNetState
         })
 
-        if (this._netState !== _tempNetState && playerConfig.resolution === 'Auto') {
+        if (!this._netState) {
             this._netState = _tempNetState;
-            RuntimeLog.getInstance().log(`media data task networkSpeedChange event fired`)
-            this.emit('networkSpeedChange', {
+            return;
+        }
+
+        //只有当前分辨率为Auto时才会发送该事件
+        if (this._netState !== _tempNetState && playerConfig.resolution === 'Auto') {
+            this.abort();
+            this._netState = _tempNetState;
+            RuntimeLog.getInstance().log(`media data task networkStateChange event fired`);
+
+            //发送网速变化事件
+            this.emit('networkStateChange', {
                 networkState: this._netState
             });
         }
@@ -252,7 +316,7 @@ class MediaDataTask extends EventEmitter {
         if (!this._keepLoader) return;
         this._keepLoader.abort();
         this._keepLoader = null;
-        this._taskMap[this._keepLoadedIndex].state = NOT_LOAD;
+        this._taskMap[this._keepLoadedIndex] && (this._taskMap[this._keepLoadedIndex].state = NOT_LOAD);
     }
 
     /**
@@ -271,7 +335,7 @@ class MediaDataTask extends EventEmitter {
     }
 
     /**
-     * 通过时间获取播放时间 如果是最后一帧则返回null
+     * 通过时间获取播放时间结尾 如果是最后一帧则返回null
      * @param time
      */
     getFrameTimeByTime(time: number) {

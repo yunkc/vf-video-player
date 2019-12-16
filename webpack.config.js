@@ -15,6 +15,12 @@ module.exports = {
         umdNamedDefine: true
     },
 
+    /* entry: "./src/test/test01.ts",
+    output: {
+        path: __dirname + "/dist",
+        filename: 'test.js',
+    }, */
+
     // Enable sourcemaps for debugging webpack's output.
     devtool: "source-map",
 

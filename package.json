@@ -46,6 +46,7 @@
     "@types/lodash": "^4.14.137",
     "bowser": "^2.4.0",
     "eventemitter3": "^3.1.2",
-    "lodash": "^4.17.15"
+    "lodash": "^4.17.15",
+    "sa-sdk-javascript": "^1.14.14"
   }
 }

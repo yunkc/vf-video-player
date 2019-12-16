@@ -72,20 +72,13 @@ export let playerConfig: IObject = {
     triggerNextLoadRangeTime: 2 * 60, //触发下次预加载的时间
     autoCleanupMaxDuration: 3 * 60, //自动sourcebuffer最大长度
     autoCleanupMinDuration: 2 * 60, //自动sourcebuffer实际长度
-    playerAppendMinBufferLengthMap: {
-        '240P': 1048576 * 0.25,
-        '360P': 1048576 * 0.5,
-        '480P': 1048576 * 0.75,
-        '720P': 1048576,
-        '1080P': 1048576 * 1.5,
-        '4K': 1048576 * 3,
-    }, // MSE最小添加buffer长度Map
     playerPreSwitchTime: 3, // 切流预置时间(s)
-    playerWaitingHandlerTime: 2000, // waiting事件处理时间(ms)
+    playerWaitingHandlerTime: 1000, // waiting事件处理时间(ms)
     playerEndGapTime: 0.5, //判断是否播放到结尾的误差时间(s)
     networkSpeedChangeReflectTime: 5000, //(ms)
     canSwitchResolution: false,// 是否可以切换分辨率
     currentResolution: null,//当前播放器实际播放分辨率, 单链接模式下为null
+    appendRateToMSE: 220, // 向MSE中appendbuffer的速度(ms) 一般不需要修改
 }
 
 export class playerConfigManager {

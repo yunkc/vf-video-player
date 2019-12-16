@@ -12,12 +12,19 @@ const srcMap = {
     noAudioLocal: './video/banner_720P.mp4',
     videojsDemoLocal: './video/oceans.mp4',
     bigbunnyLocal: './testVideo/bigbunny.mp4',
-    bigbunnyListLocal:{
+    bigbunnyListLocal: {
         '240P': './testVideo/bigbunnyList/bigbunny_240P.mp4',
         '360P': './testVideo/bigbunnyList/bigbunny_360P.mp4',
-        '480P': './testVideo/bigbunnyList/bigbunny_480P.mp4',
+        // '480P': './testVideo/bigbunnyList/bigbunny_480P.mp4',
         '720P': './testVideo/bigbunnyList/bigbunny_720P.mp4',
         '1080P': './testVideo/bigbunnyList/bigbunny_1080P.mp4',
+    },
+    bigfile: {
+        '240P': './video/bigfile/bigfile_240P.mp4',
+        '360P': './video/bigfile/bigfile_360P.mp4',
+        '480P': './video/bigfile/bigfile_480P.mp4',
+        '720P': './video/bigfile/bigfile_720P.mp4',
+        '1080P': './video/bigfile/bigfile_1080P.mp4',
     }
 }
 let player
@@ -29,35 +36,21 @@ let videoContainer;
 let fullScreenBtn;
 let mutedCheck, loopCheck;
 function init() {
-    videoContainer = $('#myVideoContainer')[0];
-    playBtn = $('#playBtn')[0];
-    pauseBtn = $('#pauseBtn')[0];
-    replayBtn = $('#replayBtn')[0];
-    progressBar = $('#progressBar')[0];
-    progressBarContainer = $('#progressBarContainer')[0];
-    definitionMenu = $('#definitionMenu')[0];
-    definitionMenuBtn = $('#definitionMenuBtn')[0];
-    changeSrcBtn = $('#changeSrcBtn')[0];
-    changePlayRateBtn = $('#changePlayRateBtn')[0];
-    fullScreenBtn = $('#fullScreenBtn')[0];
-    mutedCheck = $('#mutedCheckInput')[0];
-    loopCheck = $('#loopCheckInput')[0];
-
+    initDomElement();
     initPlayer(srcMap['bigbunnyListLocal']);
 
     //初始化分辨率列表
     let usefulDefinitionList = player.resolutions;
-    if (!usefulDefinitionList.length) {
+    let _keys = Object.keys(usefulDefinitionList);
+    _keys.unshift('Auto');
+    if (!_keys.length) {
         $(definitionMenuBtn).attr('disabled', 'disabled');
     } else {
-        usefulDefinitionList.unshift({
-            key: 'Auto'
-        });
-        usefulDefinitionList.forEach((item) => {
-            let itemElement = $(`<li><a>${item.key}</a></li>`)
+        _keys.forEach((item) => {
+            let itemElement = $(`<li><a>${item}</a></li>`)
             $(definitionMenu).append(itemElement);
             itemElement.on('click', () => {
-                player.changeResolution(item.key);
+                player.changeResolution(item);
             })
         })
     }
@@ -79,6 +72,22 @@ function init() {
     window.addEventListener('resize', () => {
         _monitorPlugin.resize();
     })
+}
+
+function initDomElement() {
+    videoContainer = $('#myVideoContainer')[0];
+    playBtn = $('#playBtn')[0];
+    pauseBtn = $('#pauseBtn')[0];
+    replayBtn = $('#replayBtn')[0];
+    progressBar = $('#progressBar')[0];
+    progressBarContainer = $('#progressBarContainer')[0];
+    definitionMenu = $('#definitionMenu')[0];
+    definitionMenuBtn = $('#definitionMenuBtn')[0];
+    changeSrcBtn = $('#changeSrcBtn')[0];
+    changePlayRateBtn = $('#changePlayRateBtn')[0];
+    fullScreenBtn = $('#fullScreenBtn')[0];
+    mutedCheck = $('#mutedCheckInput')[0];
+    loopCheck = $('#loopCheckInput')[0];
 }
 
 function initEventListener() {
@@ -134,7 +143,7 @@ function initPlayer(src) {
         container: videoContainer,
         // id: 'myPlayer',
         src: src,
-        resolution: '1080P',
+        resolution: 'Auto', //1080P
         controls: true,
         autoplay: false,
         // preload: true,
@@ -142,8 +151,7 @@ function initPlayer(src) {
         loop: false,
         playbackRate: 1,
         productId: 'j21',
-        isShowLog: false,
-        isProd: false,
+        isShowLog: true,
         playerWidth: "100%",
         playerHeight: "100%"
     });
@@ -151,13 +159,13 @@ function initPlayer(src) {
     player.playerId = 'myPlayer';
 
     //test
-    let count = 0;
-    let s1 = MediaPlayer.setInterval( () => {
-        if(count ++ >= 10){
-            MediaPlayer.removeTimer(s1)
-        }
-        console.log(1)
-    }, 1000)
+    // let count = 0;
+    // let s1 = MediaPlayer.setInterval(() => {
+    //     if (count++ >= 10) {
+    //         MediaPlayer.removeTimer(s1)
+    //     }
+    //     console.log(1)
+    // }, 1000)
 
     //状态监听
     player.on('PlayerMediaEvent', (e) => {

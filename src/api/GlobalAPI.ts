@@ -1,9 +1,6 @@
 /**
  * API模块
  */
-
-//todo: get/set未定义的属性，调用未定义的方法，需要给使用者反馈信息
-
 import { EventLevel } from "../events/EventLevel";
 import RuntimeLog from "../log/RuntimeLog";
 import CorePlayerManager from "../core/CorePlayerManager";

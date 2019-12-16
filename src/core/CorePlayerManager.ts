@@ -313,7 +313,7 @@ export default class CorePlayerManager implements IPlayerCore {
     }
 
     get resolutions(): IObject[] | string {
-        return this._playerCore.usefulUrlList;
+        return this._playerCore.mainUrlMap;
     }
 
     changeResolution(resolution: string) {
