@@ -17,10 +17,10 @@ const LOADING: number = 1;
 const LOADED: number = 2;
 //网速区域范围
 const netStatesMap: IObject = {
-    '240P': [0, 0.1],
-    '360P': [0.1, 0.4],
-    '480P': [0.4, 1],
-    '720P': [1, 2],
+    '240P': [0, 0.12],
+    '360P': [0.12, 0.25],
+    '480P': [0.25, 0.35],
+    '720P': [0.35, 2],
     '1080P': [2, 4],
     '4K': [4, 8]
 }
@@ -92,6 +92,7 @@ class MediaDataTask extends EventEmitter {
                 isLast: idx === _lg - 1 ? true : false,
             })
         })
+        console.log(`task map:${this}`);
     }
 
     /**
@@ -119,7 +120,10 @@ class MediaDataTask extends EventEmitter {
 
         if (this._keepLoadedIndex >= this._videoKeyFrames.length ||
             this._keepLoadedIndex > this._preloadIndex
-        ) return;
+        ) {
+            this._isLoading = false;
+            return;
+        }
 
         let _currentTask = this._taskMap[this._keepLoadedIndex];
         //如果当前分片处于下载中或者下载完毕, 则进入下一分片
@@ -160,7 +164,7 @@ class MediaDataTask extends EventEmitter {
             this.dispatchError(e);
         }) */
 
-
+        this._isLoading = true;
         _currentTask.state = LOADING;
         let _taskStart = _currentTask.start + this._mdatStart;
         let _taskEnd = _currentTask.end ? _currentTask.end + this._mdatStart : null;
@@ -352,13 +356,12 @@ class MediaDataTask extends EventEmitter {
      * @param time 
      */
     checkNeedNextRangeLoad(time: number) {
+        //当下载器不处于下载状态时才进行preload检测
+        if (this._isLoading) return;
         if (this._preloadIndex > this._videoKeyFrames.length - 2) return;
         let _currentTime = time;
         //获取当前帧结尾 | 下一帧开始时间
         let _startTime = this._videoKeyFrames[this._preloadIndex].time.time / this._timeScale;
-        let _endTime = this._videoKeyFrames[this._preloadIndex].time.time
-        // let _endTime = (_startTime + _duration) / this._timeScale;
-
         if (_startTime - _currentTime <= playerConfig.triggerNextLoadRangeTime) {
             RuntimeLog.getInstance().log(`trigger preload, currentTime: ${_currentTime}, _endTime: ${_startTime}, triggerNextLoadRangeTime: ${playerConfig.triggerNextLoadRangeTime}`);
             this.seek(_startTime);

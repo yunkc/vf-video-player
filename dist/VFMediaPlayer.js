@@ -4876,7 +4876,7 @@ exports.playerConfig = {
     autoCleanupMinDuration: 2 * 60,
     playerPreSwitchTime: 3,
     playerWaitingHandlerTime: 1000,
-    playerEndGapTime: 0.5,
+    playerEndGapTime: 0.1,
     networkSpeedChangeReflectTime: 5000,
     canSwitchResolution: false,
     currentResolution: null,
@@ -8243,7 +8243,6 @@ var EventCenter_1 = __webpack_require__(/*! ../../events/EventCenter */ "./src/e
 var MediaPlayerConfig_1 = __webpack_require__(/*! ../../config/MediaPlayerConfig */ "./src/config/MediaPlayerConfig.ts");
 var PlayerStateManager_1 = __webpack_require__(/*! ../PlayerStateManager */ "./src/core/PlayerStateManager.ts");
 var RuntimeLog_1 = __webpack_require__(/*! ../../log/RuntimeLog */ "./src/log/RuntimeLog.ts");
-var Buffer_1 = __webpack_require__(/*! ./Buffer */ "./src/core/vkd/Buffer.ts");
 var DoublyList_1 = __webpack_require__(/*! ./DoublyList */ "./src/core/vkd/DoublyList.ts");
 var VkdBasePlayer = /** @class */ (function (_super) {
     __extends(VkdBasePlayer, _super);
@@ -8259,11 +8258,10 @@ var VkdBasePlayer = /** @class */ (function (_super) {
         };
         _this._usefulUrlList = new DoublyList_1.default();
         _this._switchResolutionTimer = null;
-        _this._switchingDefinition = false;
+        _this._switchingResolution = false;
         _this._mediaSegmentsQueue = [];
         _this._taskQueue = [];
         _this._taskHandling = false;
-        _this._mediaBufferCache = new Buffer_1.default();
         /**
          * url初始化
          */
@@ -8292,7 +8290,7 @@ var VkdBasePlayer = /** @class */ (function (_super) {
          * mediaEvent抽象方法
          */
         _this.timeupdateHandler = function () { };
-        _this.onPauseHandler = function () { };
+        _this.pauseHandler = function () { };
         _this.waitingHandler = function () { };
         _this.seekingHandler = function () { };
         /**
@@ -8317,6 +8315,7 @@ var VkdBasePlayer = /** @class */ (function (_super) {
          * 响应网络环境变化事件
          */
         _this.onNetworkStateChange = function (e) {
+            RuntimeLog_1.default.getInstance().log("(mp4) netwrok speed change event fired, config resolution: " + MediaPlayerConfig_1.playerConfig.resolution + ", current resolution: " + MediaPlayerConfig_1.playerConfig.currentResolution + ", target resolution: " + e.networkState);
             if (!MediaPlayerConfig_1.playerConfig.canSwitchResolution)
                 return;
             var targetResolution = null;
@@ -8342,7 +8341,6 @@ var VkdBasePlayer = /** @class */ (function (_super) {
                 MediaPlayerConfig_1.playerConfig.currentResolution = targetResolution;
                 _this.switchResolution(MediaPlayerConfig_1.playerConfig.currentResolution);
             }, MediaPlayerConfig_1.playerConfig.networkSpeedChangeReflectTime);
-            RuntimeLog_1.default.getInstance().log("(mp4) netwrok speed change event fired, config resolution: " + MediaPlayerConfig_1.playerConfig.resolution + ", current resolution: " + MediaPlayerConfig_1.playerConfig.currentResolution + ", target resolution: " + e.networkState);
         };
         _this._video = videoElement;
         _this._options = options;
@@ -8692,7 +8690,6 @@ var VkdBasePlayer = /** @class */ (function (_super) {
     VkdBasePlayer.prototype.clearCache = function () {
         this._taskQueue = [];
         this._mediaSegmentsQueue = [];
-        this._mediaBufferCache = new Buffer_1.default();
     };
     VkdBasePlayer.prototype.play = function () {
         this._video.play();
@@ -12478,10 +12475,10 @@ var LOADING = 1;
 var LOADED = 2;
 //网速区域范围
 var netStatesMap = {
-    '240P': [0, 0.1],
-    '360P': [0.1, 0.4],
-    '480P': [0.4, 1],
-    '720P': [1, 2],
+    '240P': [0, 0.12],
+    '360P': [0.12, 0.25],
+    '480P': [0.25, 0.35],
+    '720P': [0.35, 2],
     '1080P': [2, 4],
     '4K': [4, 8]
 };
@@ -12562,6 +12559,7 @@ var MediaDataTask = /** @class */ (function (_super) {
                 isLast: idx === _lg - 1 ? true : false,
             });
         });
+        console.log("task map:" + this);
     };
     /**
      * 创建loader
@@ -12587,8 +12585,10 @@ var MediaDataTask = /** @class */ (function (_super) {
         if (this._keepLoader)
             return;
         if (this._keepLoadedIndex >= this._videoKeyFrames.length ||
-            this._keepLoadedIndex > this._preloadIndex)
+            this._keepLoadedIndex > this._preloadIndex) {
+            this._isLoading = false;
             return;
+        }
         var _currentTask = this._taskMap[this._keepLoadedIndex];
         //如果当前分片处于下载中或者下载完毕, 则进入下一分片
         if (_currentTask.state !== NOT_LOAD) {
@@ -12627,6 +12627,7 @@ var MediaDataTask = /** @class */ (function (_super) {
         }).catch((e: any) => {
             this.dispatchError(e);
         }) */
+        this._isLoading = true;
         _currentTask.state = LOADING;
         var _taskStart = _currentTask.start + this._mdatStart;
         var _taskEnd = _currentTask.end ? _currentTask.end + this._mdatStart : null;
@@ -12797,13 +12798,14 @@ var MediaDataTask = /** @class */ (function (_super) {
      * @param time
      */
     MediaDataTask.prototype.checkNeedNextRangeLoad = function (time) {
+        //当下载器不处于下载状态时才进行preload检测
+        if (this._isLoading)
+            return;
         if (this._preloadIndex > this._videoKeyFrames.length - 2)
             return;
         var _currentTime = time;
         //获取当前帧结尾 | 下一帧开始时间
         var _startTime = this._videoKeyFrames[this._preloadIndex].time.time / this._timeScale;
-        var _endTime = this._videoKeyFrames[this._preloadIndex].time.time;
-        // let _endTime = (_startTime + _duration) / this._timeScale;
         if (_startTime - _currentTime <= MediaPlayerConfig_1.playerConfig.triggerNextLoadRangeTime) {
             RuntimeLog_1.default.getInstance().log("trigger preload, currentTime: " + _currentTime + ", _endTime: " + _startTime + ", triggerNextLoadRangeTime: " + MediaPlayerConfig_1.playerConfig.triggerNextLoadRangeTime);
             this.seek(_startTime);
@@ -13289,8 +13291,8 @@ var VkdMP4Player = /** @class */ (function (_super) {
          * 响应media data loader加载完成事件
          */
         _this.onMediaLoaderLoad = function (e) {
-            if (_this._switchingDefinition)
-                _this._switchingDefinition = false;
+            if (_this._switchingResolution)
+                _this._switchingResolution = false;
             var _task = __assign({}, e.task);
             _task.buffer = e.task.buffer.slice(0);
             _this._taskQueue.push(_task);
@@ -13379,17 +13381,17 @@ var VkdMP4Player = /** @class */ (function (_super) {
             if (_this._mse && !_this._mse.updating) {
                 _this.isEnded();
             }
-            if (!_this._waitingHandlerTimer && !_this._isEnd) {
-                _this._waitingHandlerTimer = window.setTimeout(function () {
-                    _this.seekingHandler();
-                    clearTimeout(_this._waitingHandlerTimer);
-                }, MediaPlayerConfig_1.playerConfig.playerWaitingHandlerTime);
-            }
+            /* if (!this._waitingHandlerTimer && !this._isEnd) {
+                this._waitingHandlerTimer = window.setTimeout(() => {
+                    this.seekingHandler();
+                    clearTimeout(this._waitingHandlerTimer);
+                }, playerConfig.playerWaitingHandlerTime);
+            } */
         };
         /**
          * 响应暂停事件
          */
-        _this.onPauseHandler = function () {
+        _this.pauseHandler = function () {
         };
         /**
          * 响应播放事件
@@ -13469,7 +13471,7 @@ var VkdMP4Player = /** @class */ (function (_super) {
      * 更新分辨率
      * @param resolution
      */
-    VkdMP4Player.prototype.updateResolution = function (resolution) {
+    VkdMP4Player.prototype.updateResolution = function (resolution, switchStartTime) {
         var _this = this;
         var url = this.mainUrlMap[resolution];
         MediaPlayerConfig_1.playerConfig.currentResolution = resolution;
@@ -13482,7 +13484,7 @@ var VkdMP4Player = /** @class */ (function (_super) {
         this._mediaDataLoader = undefined;
         MediaPlayerConfig_1.playerConfig.currentResolution = resolution;
         //TODO 更新到状态管理  取消当前下载后设置状态为切换中
-        this._switchingDefinition = true;
+        this._switchingResolution = true;
         this.createMP4Runtime(url).then(function (result) {
             //重新初始化mp4
             _this._mp4 = result.mp4;
@@ -13497,7 +13499,12 @@ var VkdMP4Player = /** @class */ (function (_super) {
             _this._mediaDataLoader.on('load', _this.onMediaLoaderLoad);
             _this._mediaDataLoader.on('error', _this.errorHandler);
             _this._mediaDataLoader.on('networkStateChange', _this.onNetworkStateChange);
-            _this._mediaDataLoader.seek(_this.currentTime);
+            if (!switchStartTime) {
+                _this._mediaDataLoader.seek(_this.currentTime);
+            }
+            else {
+                _this._mediaDataLoader.seek(switchStartTime);
+            }
         }).catch(function (e) {
             _this.errorHandler(e);
         });
@@ -13507,21 +13514,35 @@ var VkdMP4Player = /** @class */ (function (_super) {
      * @param resolution
      */
     VkdMP4Player.prototype.switchResolution = function (resolution) {
+        //切流中, 放弃切流
+        if (this._switchingResolution)
+            return;
         //如果剩余时间小于当前播放时间+切换预置时间, 放弃切流
         if (this.currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime >= this.duration)
             return;
-        var _switchStartTime = this._mediaDataLoader.getFrameTimeByTime(this.currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime);
+        var _switchStartTime = this.currentTime + MediaPlayerConfig_1.playerConfig.playerPreSwitchTime;
+        var _taskEndTime = this._mediaDataLoader.getFrameTimeByTime(_switchStartTime);
         //返回null说明预置时间已经处于最后一个gap中, 放弃切流
-        if (_switchStartTime === null)
+        if (_taskEndTime === null)
             return;
         //判断当前播放所处缓冲区域的结尾时间是否大于预置时间, 优先时间短者
         var _buffered_lg = this.buffered.length;
         if (_buffered_lg) {
-            //如果已经缓冲到最后 放弃切流
-            if (Math.abs(this.buffered.end(_buffered_lg - 1) - this.duration) <= 0.5)
+            var _tempStart = null;
+            var _tempEnd = null;
+            for (var i = 0; i < _buffered_lg; i++) {
+                _tempStart = this.buffered.start(i);
+                _tempEnd = this.buffered.end(i);
+                if (this.currentTime >= _tempStart && this.currentTime <= _tempEnd) {
+                    break;
+                }
+            }
+            //如果已经缓冲并播放到最后 放弃切流
+            if (Math.abs(_tempEnd - this.duration) <= 0.5)
                 return;
+            _switchStartTime = Math.min(_switchStartTime, _tempEnd);
         }
-        this.updateResolution(resolution);
+        this.updateResolution(resolution, _switchStartTime);
     };
     /**
      * 改变分辨率
@@ -13533,7 +13554,7 @@ var VkdMP4Player = /** @class */ (function (_super) {
             return;
         }
         //如果传入目标分辨率不存在或正处于切流中, 放弃切流
-        if (!resolution || this._switchingDefinition)
+        if (!resolution || this._switchingResolution)
             return;
         //如果目标分辨率不是Auto且在map中找不到, 放弃切流
         if (resolution !== 'Auto' && !this.mainUrlMap[resolution])

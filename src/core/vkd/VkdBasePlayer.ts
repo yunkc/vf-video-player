@@ -32,11 +32,10 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     private _usefulUrlList: DoublyList = new DoublyList();
     protected _options: IObject;
     protected _switchResolutionTimer: number = null;
-    protected _switchingDefinition: boolean = false;
+    protected _switchingResolution: boolean = false;
     protected _mediaSegmentsQueue: Uint8Array[] = [];
     protected _taskQueue: IObject[] = [];
     protected _taskHandling: boolean = false;
-    protected _mediaBufferCache: Buffer = new Buffer();
     protected _mse: MSE;
 
 
@@ -294,7 +293,7 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
      * mediaEvent抽象方法
      */
     abstract timeupdateHandler = () => { };
-    abstract onPauseHandler = () => { };
+    abstract pauseHandler = () => { };
     abstract waitingHandler = () => { };
     abstract seekingHandler = () => { };
 
@@ -405,6 +404,8 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
      * 响应网络环境变化事件
      */
     protected onNetworkStateChange = (e: IObject) => {
+        RuntimeLog.getInstance().log(`(mp4) netwrok speed change event fired, config resolution: ${playerConfig.resolution}, current resolution: ${playerConfig.currentResolution}, target resolution: ${e.networkState}`);
+        
         if (!playerConfig.canSwitchResolution) return;
         let targetResolution: string = null;
         if (this.mainUrlMap[e.networkState]) {
@@ -429,8 +430,6 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
             playerConfig.currentResolution = targetResolution;
             this.switchResolution(playerConfig.currentResolution);
         }, playerConfig.networkSpeedChangeReflectTime);
-
-        RuntimeLog.getInstance().log(`(mp4) netwrok speed change event fired, config resolution: ${playerConfig.resolution}, current resolution: ${playerConfig.currentResolution}, target resolution: ${e.networkState}`);
     }
 
     /**
@@ -445,7 +444,6 @@ abstract class VkdBasePlayer extends EventEmitter implements IPlayerCore {
     protected clearCache() {
         this._taskQueue = [];
         this._mediaSegmentsQueue = [];
-        this._mediaBufferCache = new Buffer();
     }
 
     public play() {

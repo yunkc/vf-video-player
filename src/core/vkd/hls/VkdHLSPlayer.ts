@@ -40,7 +40,7 @@ class VkdHLSPlayer extends VkdBasePlayer {
         throw new Error("Method not implemented.");
     }
     timeupdateHandler: () => void;
-    onPauseHandler: () => void;
+    pauseHandler: () => void;
     waitingHandler: () => void;
     seekingHandler: () => void;
 

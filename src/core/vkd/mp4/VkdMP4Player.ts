@@ -105,7 +105,7 @@ class VkdMP4Player extends VkdBasePlayer {
      * 响应media data loader加载完成事件
      */
     private onMediaLoaderLoad = (e: IObject) => {
-        if (this._switchingDefinition) this._switchingDefinition = false;
+        if (this._switchingResolution) this._switchingResolution = false;
         let _task = { ...e.task };
         _task.buffer = e.task.buffer.slice(0);
         this._taskQueue.push(_task);
@@ -180,7 +180,7 @@ class VkdMP4Player extends VkdBasePlayer {
      * 更新分辨率
      * @param resolution
      */
-    private updateResolution(resolution: string) {
+    private updateResolution(resolution: string, switchStartTime?: number) {
         let url = this.mainUrlMap[resolution];
         playerConfig.currentResolution = resolution;
         //卸载mp4和loader, 清空队列
@@ -193,7 +193,7 @@ class VkdMP4Player extends VkdBasePlayer {
         playerConfig.currentResolution = resolution;
 
         //TODO 更新到状态管理  取消当前下载后设置状态为切换中
-        this._switchingDefinition = true;
+        this._switchingResolution = true;
         this.createMP4Runtime(url).then((result: IObject) => {
             //重新初始化mp4
             this._mp4 = result.mp4;
@@ -208,7 +208,11 @@ class VkdMP4Player extends VkdBasePlayer {
             this._mediaDataLoader.on('load', this.onMediaLoaderLoad);
             this._mediaDataLoader.on('error', this.errorHandler);
             this._mediaDataLoader.on('networkStateChange', this.onNetworkStateChange);
-            this._mediaDataLoader.seek(this.currentTime);
+            if (!switchStartTime) {
+                this._mediaDataLoader.seek(this.currentTime);
+            } else {
+                this._mediaDataLoader.seek(switchStartTime);
+            }
 
         }).catch((e: unknown) => {
             this.errorHandler(e);
@@ -220,20 +224,33 @@ class VkdMP4Player extends VkdBasePlayer {
      * @param resolution 
      */
     switchResolution(resolution: string) {
+        //切流中, 放弃切流
+        if (this._switchingResolution) return;
         //如果剩余时间小于当前播放时间+切换预置时间, 放弃切流
         if (this.currentTime + playerConfig.playerPreSwitchTime >= this.duration) return;
 
-        let _switchStartTime: number = this._mediaDataLoader.getFrameTimeByTime(this.currentTime + playerConfig.playerPreSwitchTime);
+        let _switchStartTime: number = this.currentTime + playerConfig.playerPreSwitchTime;
+        let _taskEndTime: number = this._mediaDataLoader.getFrameTimeByTime(_switchStartTime);
         //返回null说明预置时间已经处于最后一个gap中, 放弃切流
-        if (_switchStartTime === null) return;
+        if (_taskEndTime === null) return;
 
         //判断当前播放所处缓冲区域的结尾时间是否大于预置时间, 优先时间短者
         let _buffered_lg = this.buffered.length;
         if (_buffered_lg) {
-            //如果已经缓冲到最后 放弃切流
-            if (Math.abs(this.buffered.end(_buffered_lg - 1) - this.duration) <= 0.5) return;
+            let _tempStart = null;
+            let _tempEnd = null;
+            for (let i = 0; i < _buffered_lg; i++) {
+                _tempStart = this.buffered.start(i);
+                _tempEnd = this.buffered.end(i);
+                if (this.currentTime >= _tempStart && this.currentTime <= _tempEnd) {
+                    break;
+                }
+            }
+            //如果已经缓冲并播放到最后 放弃切流
+            if (Math.abs(_tempEnd - this.duration) <= 0.5) return;
+            _switchStartTime = Math.min(_switchStartTime, _tempEnd);
         }
-        this.updateResolution(resolution);
+        this.updateResolution(resolution, _switchStartTime);
     }
 
     /**
@@ -246,7 +263,7 @@ class VkdMP4Player extends VkdBasePlayer {
             return;
         }
         //如果传入目标分辨率不存在或正处于切流中, 放弃切流
-        if (!resolution || this._switchingDefinition) return;
+        if (!resolution || this._switchingResolution) return;
         //如果目标分辨率不是Auto且在map中找不到, 放弃切流
         if (resolution !== 'Auto' && !this.mainUrlMap[resolution]) return;
         this.clearAllTimer();
@@ -290,19 +307,19 @@ class VkdMP4Player extends VkdBasePlayer {
             this.isEnded();
         }
 
-        if (!this._waitingHandlerTimer && !this._isEnd) {
+        /* if (!this._waitingHandlerTimer && !this._isEnd) {
             this._waitingHandlerTimer = window.setTimeout(() => {
                 this.seekingHandler();
                 clearTimeout(this._waitingHandlerTimer);
             }, playerConfig.playerWaitingHandlerTime);
-        }
+        } */
 
     }
 
     /**
      * 响应暂停事件
      */
-    onPauseHandler = () => {
+    pauseHandler = () => {
     }
 
     /**

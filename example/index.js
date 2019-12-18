@@ -23,6 +23,7 @@ const srcMap = {
         '240P': './video/bigfile/bigfile_240P.mp4',
         '360P': './video/bigfile/bigfile_360P.mp4',
         '480P': './video/bigfile/bigfile_480P.mp4',
+        // '480P': './video/bigfile/bigfile_720P.mp4',
         '720P': './video/bigfile/bigfile_720P.mp4',
         '1080P': './video/bigfile/bigfile_1080P.mp4',
     }
@@ -37,7 +38,7 @@ let fullScreenBtn;
 let mutedCheck, loopCheck;
 function init() {
     initDomElement();
-    initPlayer(srcMap['bigbunnyListLocal']);
+    initPlayer(srcMap['bigfile']);
 
     //初始化分辨率列表
     let usefulDefinitionList = player.resolutions;
@@ -239,10 +240,29 @@ function initPlayer(src) {
     player.on('playerError', (e) => {
         console.log('===> player error: ', e);
     });
+
+    window.myPlayer = player;
 }
 
 $(document).ready(() => {
     init();
+   /*  videoContainer = $('#myVideoContainer')[0];
+    let _videoElement = document.createElement('video');
+    _videoElement.style.backgroundColor = 'black';
+    _videoElement.style.padding = '0px';
+    _videoElement.style.outline = 'none';
+    _videoElement.setAttribute('airplay', 'allow');
+    _videoElement.setAttribute('x-webkit-airplay', 'allow');
+    _videoElement.setAttribute('playsinline', 'true');
+    _videoElement.setAttribute('webkit-playsinline', 'true');
+    _videoElement.setAttribute('x5-playsinline', 'true');
+    _videoElement.setAttribute('x5-video-player-type', 'h5');
+    _videoElement.setAttribute('x5-video-player-fullscreen', 'true');
+    _videoElement.setAttribute('width', "100%");
+    _videoElement.setAttribute('height', "100%");
+    _videoElement.setAttribute('controls', "true");
+    videoContainer.appendChild(_videoElement);
+    _videoElement.setAttribute('src', './video/bigfile/bigfile_240P.mp4'); */
 })
 
 

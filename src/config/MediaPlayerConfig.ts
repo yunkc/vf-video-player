@@ -74,7 +74,7 @@ export let playerConfig: IObject = {
     autoCleanupMinDuration: 2 * 60, //自动sourcebuffer实际长度
     playerPreSwitchTime: 3, // 切流预置时间(s)
     playerWaitingHandlerTime: 1000, // waiting事件处理时间(ms)
-    playerEndGapTime: 0.5, //判断是否播放到结尾的误差时间(s)
+    playerEndGapTime: 0.1, //判断是否播放到结尾的误差时间(s)
     networkSpeedChangeReflectTime: 5000, //(ms)
     canSwitchResolution: false,// 是否可以切换分辨率
     currentResolution: null,//当前播放器实际播放分辨率, 单链接模式下为null
